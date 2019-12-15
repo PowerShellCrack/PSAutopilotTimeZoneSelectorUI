@@ -3,7 +3,7 @@ I write this a PowerShell UI to deploy to users to allow the user to change the 
 
 ![Alt_text](https://1.bp.blogspot.com/-4A1HjymzCik/XfWWtuKcFTI/AAAAAAAAWJM/Ae36IYLmsIAOXQl4PP9wHvdDYZbkovPAgCLcBGAsYHQ/s1600/Set-timeone.PNG)
 
-![Alt_text](https://1.bp.blogspot.com/-4A1HjymzCik/XfWWtuKcFTI/AAAAAAAAWJM/Ae36IYLmsIAOXQl4PP9wHvdDYZbkovPAgCLcBGAsYHQ/s640/Set-timeone.PNG)
+![Alt_text](https://2.bp.blogspot.com/-Ni2wM-CS7ik/XfWWcTREKDI/AAAAAAAAWJE/J8y1FdYBCeMG-2TaPHDJIivHmnixMYpLwCLcBGAsYHQ/s1600/Set-timeone_select.PNG)
 
 # DISCLAIMER
 
