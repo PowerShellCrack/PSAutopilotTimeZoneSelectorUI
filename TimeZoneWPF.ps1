@@ -9,18 +9,21 @@
         Can be used in 
             SCCM Tasksequences (User interface allowed)
             SCCM Software Delivery (User interface allowed)
-            Intuen Autopilot 
+            Intune Autopilot 
    
     .INFO
         Author:         Richard Tracy
-        Last Update:    12/09/2019
-        Version:        1.0.0
+        Last Update:    12/14/2019
+        Version:        1.2.0
 
     .NOTES
         Launches in full screen
 
     .CHANGE LOGS
-        1.0.0 - Dec 09, 2018 - initial
+        
+        1.2.0 - Dec 14, 2019 - Styled theme to look like OOBE; changed Combobox to ListBox
+        1.1.0 - Dec 12, 2019 - Centered all lines; changed background
+        1.0.0 - Dec 09, 2019 - initial
 
     -------------------------------------------------------------------------------
     LEGAL DISCLAIMER
@@ -57,14 +60,16 @@ $inputXML = @"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PowershellCrack"
         mc:Ignorable="d"
-
+        WindowState="Maximized"
+        WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         Title="Time Zone Selection"
         Height="1024"
         Width="768">
     <Window.Resources>
         <ResourceDictionary>
-            <Style TargetType="{x:Type Window}"> 
+
+            <Style TargetType="{x:Type Window}">
                 <Setter Property="FontFamily" Value="Segoe UI" /> 
                 <Setter Property="Background" Value="#FF1D3245" />
                 <Setter Property="Foreground" Value="#FFE8EDF9" />            

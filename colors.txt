@@ -1,0 +1,16 @@
+#004275 - Background
+
+#0078D7 - Button background
+#0069BC - Button Border
+#F1F9FD - Button Text
+
+#0078D7 - Button Over background
+#4CA0E3 - Button Over Border
+#F1F9FD - Button Over Text
+
+#4C7A9E - Button Down background
+#81A2BB - Button Down Border
+#F1F9FD - Button Down Text
+
+#002846 - Input Background
+#667E90 - Input Border
