@@ -6,21 +6,21 @@
     
     .DESCRIPTION
 		Prompts user to set time zone using windows presentation framework
-        Can be used in 
-            SCCM Tasksequences (User interface allowed)
-            SCCM Software Delivery (User interface allowed)
-            Intune Autopilot 
+        Can be used in:
+            - SCCM Tasksequences (User interface allowed)
+            - SCCM Software Delivery (User interface allowed)
+            - Intune Autopilot 
    
     .INFO
         Author:         Richard Tracy
-        Last Update:    12/14/2019
-        Version:        1.2.0
+        Last Update:    12/16/2019
+        Version:        1.2.1
 
     .NOTES
         Launches in full screen
 
     .CHANGE LOGS
-        
+        1.2.1 - Dec 16, 2019 - Highlighted current timezne in yelloe; centered text in grid columns
         1.2.0 - Dec 14, 2019 - Styled theme to look like OOBE; changed Combobox to ListBox
         1.1.0 - Dec 12, 2019 - Centered all lines; changed background
         1.0.0 - Dec 09, 2019 - initial
@@ -53,12 +53,12 @@
 # XAML LANGUAGE
 #===========================================================================
 $inputXML = @"
-<Window x:Class="PowershellCrack.MainWindow"
+<Window x:Class="SelectTimeZoneWPF.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:PowershellCrack"
+        xmlns:local="clr-namespace:SelectTimeZoneWPF"
         mc:Ignorable="d"
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
@@ -173,10 +173,17 @@ $inputXML = @"
 
     <Grid x:Name="background">
         
-        <TextBlock x:Name="targetTZ_label" HorizontalAlignment="Center" Margin="0,150,0,0" Text="Please select your Time Zone" VerticalAlignment="Top" FontSize="48"/>
+        <TextBlock x:Name="targetTZ_label" HorizontalAlignment="Center" Margin="0,150,0,0" Text="What time zone are you in?" VerticalAlignment="Top" FontSize="48"/>
         <ListBox x:Name="targetTZ_listBox" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#FF1D3245" Foreground="#FFE8EDF9" FontSize="18" Width="700" Height="350" Margin="0,250,0,0" ScrollViewer.VerticalScrollBarVisibility="Visible"/>  
-        <TextBlock x:Name="DefaultTZMsg" Text ="If Time Zone not specified, time will be set to: @anchor" HorizontalAlignment="Center" Margin="0,600,0,0" VerticalAlignment="Top" FontSize="14.667" Foreground="#00A4EF"/>
-        <Button x:Name="ChangeTZButton" Content="Change Time Zone" Height="65" Width="200" Margin="0,650,0,0" HorizontalAlignment="Center" VerticalAlignment="Top" FontSize="18" Padding="10"/>
+        <Grid x:Name="msg" Width="700" Height="50" Margin="0,300,0,0" HorizontalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="DefaultTZMsg" Grid.Column="0" Text="If a time zone is not selected, time will be set to: " HorizontalAlignment="Right" Margin="0,0,0,-1.111" VerticalAlignment="Top" FontSize="16" Foreground="#00A4EF"/>
+            <TextBlock x:Name="CurrentTZ" Grid.Column="1" Text="@anchor" HorizontalAlignment="Left" Margin="0,0,0,-0.111" VerticalAlignment="Top" FontSize="16" Foreground="yellow"/>
+        </Grid>
+        <Button x:Name="ChangeTZButton" Content="Select Time Zone" Height="65" Width="200" Margin="0,680,0,0" HorizontalAlignment="Center" VerticalAlignment="Top" FontSize="18" Padding="10"/>
         
     </Grid>
 </Window>
@@ -212,8 +219,9 @@ Function Get-FormVariables{
 #===========================================================================
 # Actually make the objects work
 #===========================================================================
+#get the current timezone and display it in UI
 $DefaultTime = (Get-TimeZone).DisplayName
-$WPFDefaultTZMsg.Text = $WPFDefaultTZMsg.Text -replace "@anchor",$DefaultTime
+$WPFCurrentTZ.Text = $WPFCurrentTZ.Text -replace "@anchor",$DefaultTime
 
 #grab all timezones and add to list
 function Get-SelectedTime {

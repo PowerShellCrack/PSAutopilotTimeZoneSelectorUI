@@ -1,3 +1,4 @@
 *.png
-.vs/slnx.sqlite
+.vs/*
 MainWindow.xaml
+/SelectTimeZoneWPF/*
