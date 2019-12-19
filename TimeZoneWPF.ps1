@@ -13,14 +13,15 @@
    
     .INFO
         Author:         Richard Tracy
-        Last Update:    12/16/2019
-        Version:        1.2.1
+        Last Update:    12/19/2019
+        Version:        1.2.5
 
     .NOTES
         Launches in full screen
 
     .CHANGE LOGS
-        1.2.1 - Dec 16, 2019 - Highlighted current timezne in yelloe; centered text in grid columns
+        1.2.5 - Dec 19, 2019 - Centered grid to support different resolutions; changed font to light
+        1.2.1 - Dec 16, 2019 - Highlighted current timezne in yellow; centered text in grid columns
         1.2.0 - Dec 14, 2019 - Styled theme to look like OOBE; changed Combobox to ListBox
         1.1.0 - Dec 12, 2019 - Centered all lines; changed background
         1.0.0 - Dec 09, 2019 - initial
@@ -63,128 +64,126 @@ $inputXML = @"
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
-        Title="Time Zone Selection"
-        Height="1024"
-        Width="768">
+        Title="Time Zone Selection">
     <Window.Resources>
         <ResourceDictionary>
 
             <Style TargetType="{x:Type Window}">
-                <Setter Property="FontFamily" Value="Segoe UI" /> 
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontWeight" Value="Light" />
                 <Setter Property="Background" Value="#FF1D3245" />
-                <Setter Property="Foreground" Value="#FFE8EDF9" />            
+                <Setter Property="Foreground" Value="#FFE8EDF9" />
             </Style>
 
             <Style x:Key="DataGridContentCellCentering" TargetType="{x:Type DataGridCell}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type DataGridCell}">
-                        <Grid Background="{TemplateBinding Background}">
-                            <ContentPresenter VerticalAlignment="Center" />
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <Style TargetType="{x:Type Button}">
-            <Setter Property="Background" Value="#FF1D3245" />
-            <Setter Property="Foreground" Value="#FFE8EDF9" />
-            <Setter Property="FontSize" Value="15" />
-            <Setter Property="FontFamily" Value="./#Segoe UI" />
-            <Setter Property="SnapsToDevicePixels" Value="True" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type DataGridCell}">
+                            <Grid Background="{TemplateBinding Background}">
+                                <ContentPresenter VerticalAlignment="Center" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style TargetType="{x:Type Button}">
+                <Setter Property="Background" Value="#FF1D3245" />
+                <Setter Property="Foreground" Value="#FFE8EDF9" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
 
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button" >
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button" >
 
-                        <Border Name="border" 
+                            <Border Name="border" 
                                 BorderThickness="1"
                                 Padding="4,2" 
                                 BorderBrush="#FF1D3245" 
                                 CornerRadius="2" 
                                 Background="#00A4EF">
-                            <ContentPresenter HorizontalAlignment="Center" 
+                                <ContentPresenter HorizontalAlignment="Center" 
                                                 VerticalAlignment="Center" 
                                                 TextBlock.TextAlignment="Center"
                                                 />
-                        </Border>
+                            </Border>
 
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="BorderBrush" Value="#FFE8EDF9" />
-                            </Trigger>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="BorderBrush" Value="#FFE8EDF9" />
+                                </Trigger>
 
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="BorderBrush" Value="#FF1D3245" />
-                                <Setter Property="Button.Foreground" Value="#FF1D3245" />
-                                <Setter Property="Effect">
-                                    <Setter.Value>
-                                        <DropShadowEffect ShadowDepth="0" Color="#FF1D3245" Opacity="1" BlurRadius="10"/>
-                                    </Setter.Value>
-                                </Setter>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="border" Property="BorderBrush" Value="#FF1D3245" />
+                                    <Setter Property="Button.Foreground" Value="#FF1D3245" />
+                                    <Setter Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect ShadowDepth="0" Color="#FF1D3245" Opacity="1" BlurRadius="10"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
 
-        <Style x:Key="{x:Type ListBox}" TargetType="ListBox">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListBox">
-                        <Border Name="Border" BorderThickness="1" CornerRadius="2">
-                            <ScrollViewer Margin="0" Focusable="false">
-                                <StackPanel Margin="2" IsItemsHost="True" />
-                            </ScrollViewer>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+            <Style x:Key="{x:Type ListBox}" TargetType="ListBox">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBox">
+                            <Border Name="Border" BorderThickness="1" CornerRadius="2">
+                                <ScrollViewer Margin="0" Focusable="false">
+                                    <StackPanel Margin="2" IsItemsHost="True" />
+                                </ScrollViewer>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
 
-        <Style x:Key="{x:Type ListBoxItem}" TargetType="ListBoxItem">
-            <Setter Property="ScrollViewer.CanContentScroll" Value="true" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListBoxItem">
-                        <Border Name="ItemBorder" Padding="8" Margin="1" Background="#FF1D3245">
-                            <ContentPresenter />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="ItemBorder" Property="Background" Value="#00A4EF" />
-                                <Setter Property="Foreground" Value="#FF1D3245" />
-                            </Trigger>
-                            <MultiTrigger>
-                                <MultiTrigger.Conditions>
-                                    <Condition Property="IsMouseOver" Value="True" />
-                                    <Condition Property="IsSelected" Value="False" />
-                                </MultiTrigger.Conditions>
-                                <Setter TargetName="ItemBorder" Property="Background" Value="#00A4EF" />
-                            </MultiTrigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+            <Style x:Key="{x:Type ListBoxItem}" TargetType="ListBoxItem">
+                <Setter Property="ScrollViewer.CanContentScroll" Value="true" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border Name="ItemBorder" Padding="8" Margin="1" Background="#FF1D3245">
+                                <ContentPresenter />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="ItemBorder" Property="Background" Value="#00A4EF" />
+                                    <Setter Property="Foreground" Value="#FF1D3245" />
+                                </Trigger>
+                                <MultiTrigger>
+                                    <MultiTrigger.Conditions>
+                                        <Condition Property="IsMouseOver" Value="True" />
+                                        <Condition Property="IsSelected" Value="False" />
+                                    </MultiTrigger.Conditions>
+                                    <Setter TargetName="ItemBorder" Property="Background" Value="#00A4EF" />
+                                </MultiTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid x:Name="background">
-        
-        <TextBlock x:Name="targetTZ_label" HorizontalAlignment="Center" Margin="0,150,0,0" Text="What time zone are you in?" VerticalAlignment="Top" FontSize="48"/>
-        <ListBox x:Name="targetTZ_listBox" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#FF1D3245" Foreground="#FFE8EDF9" FontSize="18" Width="700" Height="350" Margin="0,250,0,0" ScrollViewer.VerticalScrollBarVisibility="Visible"/>  
-        <Grid x:Name="msg" Width="700" Height="50" Margin="0,300,0,0" HorizontalAlignment="Center">
+    <Grid x:Name="background" HorizontalAlignment="Center" VerticalAlignment="Center">
+    
+        <TextBlock x:Name="targetTZ_label" HorizontalAlignment="Center" Margin="00" Text="What time zone are you in?" VerticalAlignment="Top" FontSize="48"/>
+        <ListBox x:Name="targetTZ_listBox" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#FF1D3245" Foreground="#FFE8EDF9" FontSize="18" Width="700" Height="300" Margin="0,80,0,0" ScrollViewer.VerticalScrollBarVisibility="Visible"/>
+        <Grid x:Name="msg" Width="700" Height="50" Margin="0,360,0,0" HorizontalAlignment="Center">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1*" />
                 <ColumnDefinition Width="1*" />
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="DefaultTZMsg" Grid.Column="0" Text="If a time zone is not selected, time will be set to: " HorizontalAlignment="Right" Margin="0,0,0,-1.111" VerticalAlignment="Top" FontSize="16" Foreground="#00A4EF"/>
-            <TextBlock x:Name="CurrentTZ" Grid.Column="1" Text="@anchor" HorizontalAlignment="Left" Margin="0,0,0,-0.111" VerticalAlignment="Top" FontSize="16" Foreground="yellow"/>
+            <TextBlock x:Name="DefaultTZMsg" Grid.Column="0" Text="If a time zone is not selected, time will be set to: " HorizontalAlignment="Right" Margin="0" VerticalAlignment="Top" FontSize="16" Foreground="#00A4EF"/>
+            <TextBlock x:Name="CurrentTZ" Grid.Column="1" Text="@anchor" HorizontalAlignment="Left" Margin="0" VerticalAlignment="Top" FontSize="16" Foreground="yellow"/>
         </Grid>
-        <Button x:Name="ChangeTZButton" Content="Select Time Zone" Height="65" Width="200" Margin="0,680,0,0" HorizontalAlignment="Center" VerticalAlignment="Top" FontSize="18" Padding="10"/>
-        
+        <Button x:Name="ChangeTZButton" Content="Select Time Zone" Height="65" Width="200" Margin="0,450,0,0" HorizontalAlignment="Center" VerticalAlignment="Top" FontSize="18" Padding="10"/>
+
     </Grid>
 </Window>
 "@        
