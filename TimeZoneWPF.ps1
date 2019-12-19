@@ -15,11 +15,13 @@
         Author:         Richard Tracy
         Last Update:    12/19/2019
         Version:        1.2.5
+        Thanks:         Eric Moe
 
     .NOTES
         Launches in full screen
 
     .CHANGE LOGS
+        1.2.6 - Dec 19, 2019 - Added image date checker for AutoPilot scenarios; won't launch form if not imaged within 2 hours
         1.2.5 - Dec 19, 2019 - Centered grid to support different resolutions; changed font to light
         1.2.1 - Dec 16, 2019 - Highlighted current timezne in yellow; centered text in grid columns
         1.2.0 - Dec 14, 2019 - Styled theme to look like OOBE; changed Combobox to ListBox
@@ -246,11 +248,28 @@ $WPFChangeTZButton.Add_Click({
 
     $Form.Close()})
 
-#===========================================================================
+#====================
 # Shows the form
-#===========================================================================
+#====================
 function Show-Form{
     $Form.ShowDialog() | out-null
 }
 
-Show-Form
+
+#===========================================================================
+# Main - Call the form
+#===========================================================================
+$ForceTimeSelect = $false
+
+#grab last image install date
+$objOS = get-wmiobject win32_operatingsystem 
+$InstallDate = $objOS | select @{Name=”Installed”;Expression={$_.ConvertToDateTime($_.InstallDate)}}
+$InstallDate = $InstallDate.Installed
+$Now = get-date
+$TotalHoursElapsed = (New-Timespan -Start $InstallDate -End $Now).TotalHours
+
+#if the hour is over 2 hours don't display time selector
+#or if force is enabled
+If (($TotalHoursElapsed -lt 2) -or $ForceTimeSelect) {
+    Show-Form
+}
