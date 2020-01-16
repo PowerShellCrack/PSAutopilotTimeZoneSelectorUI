@@ -1,6 +1,5 @@
 ﻿
 <#
-
     .SYNOPSIS
         Prompts user to set time zone
     
@@ -13,14 +12,16 @@
    
     .INFO
         Author:         Richard Tracy
-        Last Update:    12/19/2019
-        Version:        1.2.5
+        Last Update:    01/16/2020
+        Version:        1.2.8
         Thanks:         Eric Moe
 
     .NOTES
         Launches in full screen
 
     .CHANGE LOGS
+        1.2.8 - Jan 16, 2020 - Scrolls to current time zone
+        1.2.7 - Jan 15, 2020 - Remove image checks; separated into different script
         1.2.6 - Dec 19, 2019 - Added image date checker for AutoPilot scenarios; won't launch form if not imaged within 2 hours
         1.2.5 - Dec 19, 2019 - Centered grid to support different resolutions; changed font to light
         1.2.1 - Dec 16, 2019 - Highlighted current timezne in yellow; centered text in grid columns
@@ -175,7 +176,7 @@ $inputXML = @"
     <Grid x:Name="background" HorizontalAlignment="Center" VerticalAlignment="Center">
     
         <TextBlock x:Name="targetTZ_label" HorizontalAlignment="Center" Margin="00" Text="What time zone are you in?" VerticalAlignment="Top" FontSize="48"/>
-        <ListBox x:Name="targetTZ_listBox" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#FF1D3245" Foreground="#FFE8EDF9" FontSize="18" Width="700" Height="300" Margin="0,80,0,0" ScrollViewer.VerticalScrollBarVisibility="Visible"/>
+        <ListBox x:Name="targetTZ_listBox" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#FF1D3245" Foreground="#FFE8EDF9" FontSize="18" Width="700" Height="300" Margin="0,80,0,0" ScrollViewer.VerticalScrollBarVisibility="Visible" SelectionMode="Single"/>
         <Grid x:Name="msg" Width="700" Height="50" Margin="0,360,0,0" HorizontalAlignment="Center">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1*" />
@@ -231,13 +232,19 @@ function Get-SelectedTime {
     $TargetTime = if (($WPFtargetTZ_listBox.SelectedItem -eq $null) -or ($WPFtargetTZ_listBox.SelectedItem -eq '')){$CurrentTime}Else{$WPFtargetTZ_listBox.SelectedItem}
     #Write-Host "You selected: $TargetTime"
 
+    #return timezones 
     return (Get-TimeZone -ListAvailable | Where {$_.Displayname -eq $TargetTime})
 }
 
 #Get all timezones and load it to combo box
+(Get-TimeZone -ListAvailable).DisplayName | ForEach-object {$WPFtargetTZ_listBox.Items.Add($_)} | Out-Null
 
+#select current time zone
+$WPFtargetTZ_listBox.SelectedItem = [string](Get-TimeZone).DisplayName
 
-(Get-TimeZone -ListAvailable).DisplayName | ForEach-object {$WPFtargetTZ_listBox.Items.Add($_)}  | Out-Null
+#scrolls list to current selected item
+#+3 below to center selected item on screen
+$WPFtargetTZ_listBox.ScrollIntoView($WPFtargetTZ_listBox.Items[$WPFtargetTZ_listBox.SelectedIndex+3])
 
 #when button is clicked changer time
 $WPFChangeTZButton.Add_Click({
@@ -261,15 +268,5 @@ function Show-Form{
 #===========================================================================
 $ForceTimeSelect = $false
 
-#grab last image install date
-$objOS = get-wmiobject win32_operatingsystem 
-$InstallDate = $objOS | select @{Name=”Installed”;Expression={$_.ConvertToDateTime($_.InstallDate)}}
-$InstallDate = $InstallDate.Installed
-$Now = get-date
-$TotalHoursElapsed = (New-Timespan -Start $InstallDate -End $Now).TotalHours
+Show-Form
 
-#if the hour is over 2 hours don't display time selector
-#or if force is enabled
-If (($TotalHoursElapsed -lt 2) -or $ForceTimeSelect) {
-    Show-Form
-}
