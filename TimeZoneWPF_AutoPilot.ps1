@@ -13,14 +13,17 @@
    
     .INFO
         Author:         Richard Tracy
-        Last Update:    01/16/2020
-        Version:        1.2.6
-        Thanks:         Eric Moe
+        Last Update:    02/13/2020
+        Version:        1.4.0
+        Thanks:         Eric Moe,Matthew White
 
     .NOTES
         Launches in full screen
 
     .CHANGE LOGS
+        1.4.0 - Feb 13, 2020 - Added the onloine geo time check to select appropiate time based on public IP;
+                               Requires API keys for Bingmaps and ipstack.com
+        1.3.0 - Jan 21, 2020 - Removed Time Zone select notification, increase height timzone list
         1.2.8 - Jan 16, 2020 - Scrolls to current time zone
         1.2.6 - Dec 19, 2019 - Added image date checker for AutoPilot scenarios; won't launch form if not imaged within 2 hours
         1.2.5 - Dec 19, 2019 - Centered grid to support different resolutions; changed font to light
@@ -29,6 +32,10 @@
         1.1.0 - Dec 12, 2019 - Centered all lines; changed background
         1.0.0 - Dec 09, 2019 - initial
 
+    .LINKS
+        https://matthewjwhite.co.uk/2019/04/18/intune-automatically-set-timezone-on-new-device-build/
+        https://ipstack.com
+        https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
     -------------------------------------------------------------------------------
     LEGAL DISCLAIMER
     This Sample Code is provided for the purpose of illustration only and is not
@@ -173,23 +180,25 @@ $inputXML = @"
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid x:Name="background" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <Grid x:Name="background" HorizontalAlignment="Center" VerticalAlignment="Center" Height="600">
     
-        <TextBlock x:Name="targetTZ_label" HorizontalAlignment="Center" Margin="00" Text="What time zone are you in?" VerticalAlignment="Top" FontSize="48"/>
-        <ListBox x:Name="targetTZ_listBox" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#FF1D3245" Foreground="#FFE8EDF9" FontSize="18" Width="700" Height="300" Margin="0,80,0,0" ScrollViewer.VerticalScrollBarVisibility="Visible" SelectionMode="Single"/>
-        <Grid x:Name="msg" Width="700" Height="50" Margin="0,360,0,0" HorizontalAlignment="Center">
+        <TextBlock x:Name="targetTZ_label" HorizontalAlignment="Center" Text="What time zone are you in?" VerticalAlignment="Top" FontSize="48"/>
+        <ListBox x:Name="targetTZ_listBox" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#FF1D3245" Foreground="#FFE8EDF9" FontSize="18" Width="700" Height="400" Margin="0,80,0,0" ScrollViewer.VerticalScrollBarVisibility="Visible" SelectionMode="Single"/>
+        <Grid x:Name="msg" Width="700" Height="100" Margin="0,360,0,0" HorizontalAlignment="Center">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1*" />
                 <ColumnDefinition Width="1*" />
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="DefaultTZMsg" Grid.Column="0" Text="If a time zone is not selected, time will be set to: " HorizontalAlignment="Right" Margin="0" VerticalAlignment="Top" FontSize="16" Foreground="#00A4EF"/>
-            <TextBlock x:Name="CurrentTZ" Grid.Column="1" Text="@anchor" HorizontalAlignment="Left" Margin="0" VerticalAlignment="Top" FontSize="16" Foreground="yellow"/>
+            <!--
+            <TextBlock x:Name="DefaultTZMsg" Grid.Column="0" Text="If a time zone is not selected, time will be set to: " HorizontalAlignment="Right" VerticalAlignment="Bottom" FontSize="16" Foreground="#00A4EF"/>
+            <TextBlock x:Name="CurrentTZ" Grid.Column="1" Text="@anchor" HorizontalAlignment="Left" VerticalAlignment="Bottom" FontSize="16" Foreground="yellow"/>
+            -->
         </Grid>
-        <Button x:Name="ChangeTZButton" Content="Select Time Zone" Height="65" Width="200" Margin="0,450,0,0" HorizontalAlignment="Center" VerticalAlignment="Top" FontSize="18" Padding="10"/>
+        <Button x:Name="ChangeTZButton" Content="Select Time Zone" Height="65" Width="200" HorizontalAlignment="Center" VerticalAlignment="Bottom" FontSize="18" Padding="10"/>
 
     </Grid>
 </Window>
-"@        
+"@      
 
 #replace some defualt attributes to support powershell
 $inputXML = $inputXML -replace 'mc:Ignorable="d"','' -replace "x:N",'N'  -replace '^<Win.*', '<Window'
@@ -222,25 +231,58 @@ Function Get-FormVariables{
 # Actually make the objects work
 #===========================================================================
 #get the current timezone and display it in UI
-$DefaultTime = (Get-TimeZone).DisplayName
-$WPFCurrentTZ.Text = $WPFCurrentTZ.Text -replace "@anchor",$DefaultTime
+#$DefaultTime = (Get-TimeZone).DisplayName
+#$WPFCurrentTZ.Text = $WPFCurrentTZ.Text -replace "@anchor",$DefaultTime
 
 #grab all timezones and add to list
 function Get-SelectedTime {
-    $CurrentTime = [string](Get-TimeZone).DisplayName
-    #$TargetTime = '(UTC-08:00) Pacific Time (US & Canada)'
-    $TargetTime = if (($WPFtargetTZ_listBox.SelectedItem -eq $null) -or ($WPFtargetTZ_listBox.SelectedItem -eq '')){$CurrentTime}Else{$WPFtargetTZ_listBox.SelectedItem}
-    #Write-Host "You selected: $TargetTime"
+    param([switch]$AttemptOnline)
+    
+    If($PSBoundParameters.ContainsKey('AttemptOnline')){
+        $ipStackAPIKey = "##########" #used to get geoCoordinates of the public IP. get the API key from https://ipstack.com
+        $bingMapsAPIKey = "##########" #Used to get the Windows TimeZone value of the location coordinates. get teh API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
 
-    #return timezones 
-    return (Get-TimeZone -ListAvailable | Where {$_.Displayname -eq $TargetTime})
+        #grab public IP and its geo location
+        try {
+            $geoIP = Invoke-RestMethod -Uri "http://api.ipstack.com/check?access_key=$($ipStackAPIKey)" -ErrorAction Stop -ErrorVariable $ErrorGeoIP
+            Write-Output "Detected that $($geoIP.ip) is located in $($geoIP.country_name) at $($geoIP.latitude),$($geoIP.longitude)"
+        }
+        Catch {
+            Write-Output "Error obtaining coordinates or public IP address" 
+        }
+
+        #determine geo location's timezone
+        try {
+            $timeZone = Invoke-RestMethod -Uri "https://dev.virtualearth.net/REST/v1/timezone/$($geoIP.latitude),$($geoIP.longitude)?key=$($bingMapsAPIKey)" -ErrorAction Stop -ErrorVariable $ErrortimeZone
+        }
+        catch {
+            Write-Output "Error obtaining Timezone from Bing Maps API"
+        }
+
+        $correctTimeZone = $timeZone.resourceSets.resources.timeZone.windowsTimeZoneId
+        Write-Output "Detected Correct time zone as '$($correctTimeZone)'"
+        $SelectedTimeZone = [string](Get-TimeZone -id $correctTimeZone).DisplayName
+
+    }
+
+    #confirm if time zone value exists, if not default to current time
+    If(!$SelectedTimeZone){
+        $SelectedTimeZone = [string](Get-TimeZone).DisplayName
+       #$TargetTime = '(UTC-08:00) Pacific Time (US & Canada)'
+    }
+
+    #return selected timezone 
+    return (Get-TimeZone -ListAvailable | Where {$_.Displayname -eq $SelectedTimeZone})
 }
 
 #Get all timezones and load it to combo box
-(Get-TimeZone -ListAvailable).DisplayName | ForEach-object {$WPFtargetTZ_listBox.Items.Add($_)}  | Out-Null
+(Get-TimeZone -ListAvailable).DisplayName | ForEach-object {$WPFtargetTZ_listBox.Items.Add($_)} | Out-Null
+
+#find a time zone to select
+$TargetTimeZone = Get-SelectedTime -AttemptOnline
 
 #select current time zone
-$WPFtargetTZ_listBox.SelectedItem = [string](Get-TimeZone).DisplayName
+$WPFtargetTZ_listBox.SelectedItem = $TargetTimeZone.Displayname
 
 #scrolls list to current selected item
 #+3 below to center selected item on screen
@@ -249,10 +291,8 @@ $WPFtargetTZ_listBox.ScrollIntoView($WPFtargetTZ_listBox.Items[$WPFtargetTZ_list
 #when button is clicked changer time
 $WPFChangeTZButton.Add_Click({
     #Resolve Form Settings
-    $result = Get-SelectedTime
-    Set-TimeZone $result
+    Set-TimeZone $TargetTimeZone.id
     Start-Service W32Time -ErrorAction SilentlyContinue | Restart-Service -ErrorAction SilentlyContinue
-
     $Form.Close()})
 
 #====================
