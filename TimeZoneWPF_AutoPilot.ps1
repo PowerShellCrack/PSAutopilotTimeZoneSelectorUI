@@ -12,15 +12,16 @@
             - Intune Autopilot 
    
     .INFO
-        Author:         Richard Tracy
-        Last Update:    02/13/2020
-        Version:        1.4.0
+        Author:         Richard "Dick" Tracy II
+        Last Update:    03/06/2020
+        Version:        1.4.1
         Thanks:         Eric Moe,Matthew White
 
     .NOTES
         Launches in full screen
 
     .CHANGE LOGS
+        1.4.1 - Mar 06, 2020 - Check if Select time found when no API specified
         1.4.0 - Feb 13, 2020 - Added the onloine geo time check to select appropiate time based on public IP;
                                Requires API keys for Bingmaps and ipstack.com
         1.3.0 - Jan 21, 2020 - Removed Time Zone select notification, increase height timzone list
@@ -259,9 +260,10 @@ function Get-SelectedTime {
             Write-Output "Error obtaining Timezone from Bing Maps API"
         }
 
+        #if above worked, get selected time
         $correctTimeZone = $timeZone.resourceSets.resources.timeZone.windowsTimeZoneId
         Write-Output "Detected Correct time zone as '$($correctTimeZone)'"
-        $SelectedTimeZone = [string](Get-TimeZone -id $correctTimeZone).DisplayName
+        If($correctTimeZone){$SelectedTimeZone = [string](Get-TimeZone -id $correctTimeZone).DisplayName}
 
     }
 
