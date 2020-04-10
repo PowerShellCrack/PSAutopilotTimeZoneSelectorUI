@@ -57,7 +57,7 @@
  
     This posting is provided "AS IS" with no warranties, and confers no rights. Use
     of included script samples are subject to the terms specified
-    at http://www.microsoft.com/info/cpyright.htm.
+    at https://www.microsoft.com/en-us/legal/copyright/.
     -----------------------------------------------------------------------------
 
 #>
@@ -66,8 +66,8 @@
 # CONTROL VARIABLES
 #===========================================================================
 #used to get geoCoordinates of the public IP. get the API key from https://ipstack.com
-
 $ipStackAPIKey = "4bd144c23e13947562b73ca8644aa431" 
+
 #Used to get the Windows TimeZone value of the location coordinates. get the API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
 $bingMapsAPIKey = "An19uNUOwg71czomO2cEB9njocBF9Ip7SV82Kmp6Fkg_Gk6VLTMc6tXGuwbAs8-f" 
 
