@@ -1,5 +1,5 @@
 # Select Time Zone
-I write this a PowerShell UI to deploy to users to allow the user to change the time zone on the device.
+I write this a PowerShell UI to deploy to users to allow the user to change the time zone on the device. This was originally intended for a user to select their timezone on first logon. I wanted the this to popup to look and feel like something from Windows Out-of-Box-Experience without having to build a custom OOBE.xml. 
 
 ![Alt_text](https://1.bp.blogspot.com/-4A1HjymzCik/XfWWtuKcFTI/AAAAAAAAWJM/Ae36IYLmsIAOXQl4PP9wHvdDYZbkovPAgCLcBGAsYHQ/s1600/Set-timeone.PNG)
 
