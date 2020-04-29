@@ -13,14 +13,15 @@
    
     .INFO
         Author:         Richard "Dick" Tracy II
-        Last Update:    03/26/2020
-        Version:        1.5.0
+        Last Update:    04/29/2020
+        Version:        1.5.1
         Thanks:         Eric Moe,Matthew White
 
     .NOTES
         Launches in full screen
 
     .CHANGE LOGS
+        1.5.1 - Apr 29, 2020 - Fixed TimeComparisonDiffers to Check if true (not false)
         1.5.0 - Apr 10, 2020 - Remvoed OS image check and used registry key. Set values for verbose logging, and user deriven mode to merge autopilot version 
         1.4.2 - Mar 26, 2020 - Remove API key from Intune management log for sensitivity 
         1.4.1 - Mar 06, 2020 - Check if Select time found when no API specified
@@ -57,7 +58,7 @@
  
     This posting is provided "AS IS" with no warranties, and confers no rights. Use
     of included script samples are subject to the terms specified
-    at https://www.microsoft.com/en-us/legal/copyright/.
+    at http://www.microsoft.com/info/cpyright.htm.
     -----------------------------------------------------------------------------
 
 #>
@@ -66,10 +67,10 @@
 # CONTROL VARIABLES
 #===========================================================================
 #used to get geoCoordinates of the public IP. get the API key from https://ipstack.com
-$ipStackAPIKey = "" 
 
+$ipStackAPIKey = "4bd144c23e13947562b73ca8644aa431" 
 #Used to get the Windows TimeZone value of the location coordinates. get the API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
-$bingMapsAPIKey = "" 
+$bingMapsAPIKey = "An19uNUOwg71czomO2cEB9njocBF9Ip7SV82Kmp6Fkg_Gk6VLTMc6tXGuwbAs8-f" 
 
 # deploy to user sets either HKCU key or HKLM key
 # Set to true if the deployment is for  autopilot 
@@ -77,10 +78,19 @@ $bingMapsAPIKey = ""
 $UserDriven = $true
 
 # Specify that this script will only launch the form one time.
-$RunTimeSelectorOnce = $true
+$TimeSelectorRunOnce = $true
+
+# Disabled and with Bing API --> Current timezone and geo timezone will be compared; if different, form will be displayed
+# Enabled --> the selection will always show
+$ForceTimeSelection = $false
+
+# Enabled with Bing API --> No prompt for user, time will update on it own
+# Enabled without Bing API --> User will be prompted at least once
+# Ignored if ForceTimeSelection is enabled
+$AutoTimeSelection = $false
 
 #$VerbosePreference = 'Continue'
-$VerbosePreference = 'SilentlyContinue'
+$VerbosePreference = 'Continue'
 #===========================================================================
 # XAML LANGUAGE
 #===========================================================================
@@ -251,6 +261,18 @@ Function Get-FormVariables{
 #Set registry hive for user or local machine
 If($UserDriven){$RegHive = 'HKCU:'}Else{$RegHive = 'HKLM:'}
 
+# Build registry key for status and selection
+#if unable to create key, deployment or permission may need to change 
+Try{
+    If(-not(Test-Path "$RegHive\SOFTWARE\TimezoneSelector") ){
+        New-ItemProperty -Path "$RegHive\SOFTWARE" -nAME "TimezoneSelector" -ErrorAction Stop -Verbose:$VerbosePreference | Out-Null       
+    }
+}
+Catch{
+    Throw ("Unable to configure registry key [{0}\{1}]. {3}" -f "$RegHive\SOFTWARE\TimezoneSelector", 'TimeZoneSelected ',$TargetTimeZone.id,$_.Exception.Message)
+    Exit -1
+}
+
 #===========================================================================
 # Actually make the objects work
 #===========================================================================
@@ -259,7 +281,7 @@ If($UserDriven){$RegHive = 'HKCU:'}Else{$RegHive = 'HKLM:'}
 #$WPFCurrentTZ.Text = $WPFCurrentTZ.Text -replace "@anchor",$DefaultTime
 
 #grab all timezones and add to list
-function Get-SelectedTime {
+function Get-GEOTimeZone {
     param(
         [CmdletBinding()]
         [string]$ipStackAPIKey,
@@ -345,59 +367,110 @@ Else{
         Verbose=$VerbosePreference
     }
 }
-$TargetTimeZone = Get-SelectedTime @params
+
+#grab Geo Timezone
+$TargetGEOTimeZone = Get-GEOTimeZone @params
 
 #select current time zone
-$WPFtargetTZ_listBox.SelectedItem = $TargetTimeZone.Displayname
+$WPFtargetTZ_listBox.SelectedItem = $TargetGEOTimeZone.Displayname
 
 #scrolls list to current selected item
 #+3 below to center selected item on screen
 $WPFtargetTZ_listBox.ScrollIntoView($WPFtargetTZ_listBox.Items[$WPFtargetTZ_listBox.SelectedIndex+3])
 
+#if autoselection is enabled, attempt setting the time zone
+If($AutoTimeSelection){
+    Write-Verbose "Auto Selection enabled"
+    Write-Verbose ("Attempting to auto set Time Zone to: {0}" -f $TargetGEOTimeZone.id)
+    Set-TimeZone $TargetGEOTimeZone.id
+    Start-Service W32Time -ErrorAction SilentlyContinue | Restart-Service -ErrorAction SilentlyContinue -Verbose:$VerbosePreference
+}
+
+#compare the GEO Targeted timezone verses the current timezone
+If($TargetGEOTimeZone.id -eq ((Get-TimeZone).Id) ){
+    $TimeComparisonDiffers = $false
+}
+Else{
+    $TimeComparisonDiffers = $true
+}
 
 #when button is clicked changer time
 $WPFChangeTZButton.Add_Click({
     #Set time zone
-    Set-TimeZone $TargetTimeZone.id
+    Set-TimeZone $TargetGEOTimeZone.id
 
-    Write-Verbose ("Time Zone set: {0}" -f $TargetTimeZone.id)
+    Write-Verbose ("Time Zone set: {0}" -f $TargetGEOTimeZone.id)
     #build registry key for time selector
-    Try{
-        If(-not(Test-Path "$RegHive\SOFTWARE\TimezoneSelector") ){
-            New-Item "$RegHive\SOFTWARE\TimezoneSelector" -Force -ErrorAction Stop | New-ItemProperty -Name TimeZoneSelected -PropertyType String -Value "$($TargetTimeZone.id)" -Force -ErrorAction Stop -Verbose:$VerbosePreference | Out-Null       
-        } 
-        Else{
-            Set-ItemProperty -Path "$RegHive\SOFTWARE\TimezoneSelector" -Name TimeZoneSelected -Value "$($TargetTimeZone.id)" -Force -ErrorAction Stop -Verbose:$VerbosePreference | Out-Null
-        }
-    }
-    Catch{
-        Write-Error ("Unable to configure registry key [{0}\{1}]. {3}" -f "$RegHive\SOFTWARE\TimezoneSelector", 'TimeZoneSelected ',$TargetTimeZone.id,$_.Exception.Message)
-    }
+    Set-ItemProperty -Path "$RegHive\SOFTWARE\TimezoneSelector" -Name TimeZoneSelected -Value "$($TargetGEOTimeZone.id)" -Force -ErrorAction Stop -Verbose:$VerbosePreference | Out-Null
 
     Start-Service W32Time -ErrorAction SilentlyContinue | Restart-Service -ErrorAction SilentlyContinue -Verbose:$VerbosePreference
-    $Form.Close()})
+    Stop-TimeSelectorForm -StatusHive $RegHive})
 
 #====================
 # Shows the form
 #====================
-function Show-Form{
-    $Form.ShowDialog() | out-null
+function Start-TimeSelectorForm{
+    param(
+        [CmdletBinding()]
+        [string]$StatusHive
+    )
+    Set-ItemProperty -Path "$StatusHive\SOFTWARE\TimezoneSelector" -Name Status -Value "Running" -Force -ErrorAction SilentlyContinue -Verbose:$VerbosePreference | Out-Null
+    
+    Try{
+        $Form.ShowDialog() | Out-Null
+    }
+    Catch{
+        Set-ItemProperty -Path "$StatusHive\SOFTWARE\TimezoneSelector" -Name Status -Value 'Failed' -Force -ErrorAction Stop -Verbose:$VerbosePreference | Out-Null
+    }
 }
 
+function Stop-TimeSelectorForm{
+    param(
+        [CmdletBinding()]
+        [string]$StatusHive,
+        [string]$CustomStatus
+    )
+    
+    If($CustomStatus){$status = $CustomStatus}
+    Else{$status = 'Completed'}
+
+    Set-ItemProperty -Path "$StatusHive\SOFTWARE\TimezoneSelector" -Name Status -Value $status -Force -ErrorAction Stop -Verbose:$VerbosePreference | Out-Null
+    $Form.Close() | Out-Null
+}
 
 #===========================================================================
-# Main - Call the form
+# Main - Call the form depending on scneario
 #===========================================================================
-If($RunTimeSelectorOnce){
-    #check if regsitry key exists to determine if form needs to be displayed
-    If(-not(Test-Path "$RegHive\SOFTWARE\TimezoneSelector")){
-        Show-Form
-    }Else{
+
+# found that if script is called by Intune, the script may be running multiple times if the ESP screen process takes a while
+# Only allow the script to run once if it is already being displayed
+If((Get-ItemProperty "$RegHive\SOFTWARE\TimezoneSelector" -Name Status).Status -eq "Running"){
+    Write-Verbose "Detected that TimeSelector form is running. Exiting"
+    Exit
+}
+ElseIf($ForceTimeSelection){
+    #run form all the time
+    Write-Verbose ("Force Selection scenario enabled: Form will be displayed")
+    Start-TimeSelectorForm -StatusHive $RegHive
+}
+ElseIf($TimeComparisonDiffers -eq $true){
+    #Only run if time compared differs
+    Write-Verbose ("Current time is different than Geo time scenario: Form will be displayed")
+    Start-TimeSelectorForm -StatusHive $RegHive
+}
+ElseIf($TimeSelectorRunOnce){
+    #check if regsitry key exists to determine if form needs to be displayed\
+    If(-not((Get-ItemProperty "$RegHive\SOFTWARE\TimezoneSelector" -Name Status).Status -eq "Completed") ){
+        Write-Verbose ("No key exist for run once scenario: Form will be displayed")
+        Start-TimeSelectorForm -StatusHive $RegHive
+    }
+    Else{
         #do nothing
+        Stop-TimeSelectorForm -StatusHive $RegHive -CustomStatus "Completed"
         Return
     }
 }
 Else{
-   #run form all the time
-   Show-Form
+    Write-Verbose ("All scenarios are false: Form will be displayed")
+    Start-TimeSelectorForm -StatusHive $RegHive
 }
