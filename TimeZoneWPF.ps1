@@ -1,6 +1,5 @@
 ﻿
 <#
-
     .SYNOPSIS
         Prompts user to set time zone
     
@@ -10,87 +9,83 @@
             - SCCM Tasksequences (User interface allowed)
             - SCCM Software Delivery (User interface allowed)
             - Intune Autopilot 
-   
-    .INFO
-        Author:         Richard "Dick" Tracy II
-        Last Update:    04/29/2020
-        Version:        1.5.1
-        Thanks:         Eric Moe,Matthew White
 
     .NOTES
-        Launches in full screen
+        Launches in full screen using WPF
 
-    .CHANGE LOGS
-        1.5.1 - Apr 29, 2020 - Fixed TimeComparisonDiffers to Check if true (not false)
-        1.5.0 - Apr 10, 2020 - Remvoed OS image check and used registry key. Set values for verbose logging, and user deriven mode to merge autopilot version 
-        1.4.2 - Mar 26, 2020 - Remove API key from Intune management log for sensitivity 
-        1.4.1 - Mar 06, 2020 - Check if Select time found when no API specified
-        1.4.0 - Feb 13, 2020 - Added the onloine geo time check to select appropiate time based on public IP;
-                               Requires API keys for Bingmaps and ipstack.com
-        1.3.0 - Jan 21, 2020 - Removed Time Zone select notification, increase height timzone list
-        1.2.8 - Jan 16, 2020 - Scrolls to current time zone
-        1.2.6 - Dec 19, 2019 - Added image date checker for AutoPilot scenarios; won't launch form if not imaged within 2 hours
-        1.2.5 - Dec 19, 2019 - Centered grid to support different resolutions; changed font to light
-        1.2.1 - Dec 16, 2019 - Highlighted current timezne in yellow; centered text in grid columns
-        1.2.0 - Dec 14, 2019 - Styled theme to look like OOBE; changed Combobox to ListBox
-        1.1.0 - Dec 12, 2019 - Centered all lines; changed background
-        1.0.0 - Dec 09, 2019 - initial
-
-    .LINKS
+    .LINK
         https://matthewjwhite.co.uk/2019/04/18/intune-automatically-set-timezone-on-new-device-build/
         https://ipstack.com
         https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
-    -------------------------------------------------------------------------------
-    LEGAL DISCLAIMER
-    This Sample Code is provided for the purpose of illustration only and is not
-    intended to be used in a production environment.  THIS SAMPLE CODE AND ANY
-    RELATED INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER
-    EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
-    MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.  We grant You a
-    nonexclusive, royalty-free right to use and modify the Sample Code and to
-    reproduce and distribute the object code form of the Sample Code, provided
-    that You agree: (i) to not use Our name, logo, or trademarks to market Your
-    software product in which the Sample Code is embedded; (ii) to include a valid
-    copyright notice on Your software product in which the Sample Code is embedded;
-    and (iii) to indemnify, hold harmless, and defend Us and Our suppliers from and
-    against any claims or lawsuits, including attorneys’ fees, that arise or result
-    from the use or distribution of the Sample Code.
- 
-    This posting is provided "AS IS" with no warranties, and confers no rights. Use
-    of included script samples are subject to the terms specified
-    at http://www.microsoft.com/info/cpyright.htm.
-    -----------------------------------------------------------------------------
 
+    .PARAMETER IpStackAPIKey
+        Used to get geoCoordinates of the public IP. get the API key from https://ipstack.com
+
+    .PARAMETER BingMapsAPIKeyy
+        Used to get the Windows TimeZone value of the location coordinates. get the API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
+    
+    .PARAMETER UserDriven
+        deploy to user sets either HKCU key or HKLM key
+        Set to true if the deployment is for  autopilot 
+        NOTE: Permission required for HKLM
+    
+    .PARAMETER TimeSelectorRunOnce
+        Specify that this script will only launch the form one time.
+
+    .PARAMETER ForceTimeSelection
+        Disabled and with Bing API --> Current timezone and geo timezone will be compared; if different, form will be displayed
+        Enabled --> the selection will always show
+
+    .PARAMETER AutoTimeSelection
+        Enabled with Bing API --> No prompt for user, time will update on it own
+        Enabled without Bing API --> User will be prompted at least once
+        Ignored if ForceTimeSelection is enabled
+
+    .EXAMPLE
+        PS> .\TimeZoneWPF.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
+
+        Uses IP GEO location for the pre-selection
+
+    .EXAMPLE
+        PS> .\TimeZoneWPF.ps1 -ForceTimeSelection
+
+        This will always display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected
+
+    .EXAMPLE
+        PS> .\TimeZoneWPF.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -AutoTimeSelection
+
+        This will set the time automatically using the IP GEO location without prompting user. If API not provided, time will not change the time
+
+    .EXAMPLE
+        PS> .\TimeZoneWPF.ps1 -UserDriven $false
+
+        Writes a registry key in HKLM hive to determine run status
+
+    .EXAMPLE
+        PS> .\TimeZoneWPF.ps1 -TimeSelectorRunOnce $true
+
+        Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed. 
 #>
 
 #===========================================================================
 # CONTROL VARIABLES
 #===========================================================================
-#used to get geoCoordinates of the public IP. get the API key from https://ipstack.com
 
-$ipStackAPIKey = "4bd144c23e13947562b73ca8644aa431" 
-#Used to get the Windows TimeZone value of the location coordinates. get the API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
-$bingMapsAPIKey = "An19uNUOwg71czomO2cEB9njocBF9Ip7SV82Kmp6Fkg_Gk6VLTMc6tXGuwbAs8-f" 
+[CmdletBinding(SupportsShouldProcess=$True)]
+param(
+    [string]$IpStackAPIKey = "",
+    
+    [string]$BingMapsAPIKey = "" ,
 
-# deploy to user sets either HKCU key or HKLM key
-# Set to true if the deployment is for  autopilot 
-# NOTE: Permission required for HKLM
-$UserDriven = $true
+    [boolean]$UserDriven = $true,
 
-# Specify that this script will only launch the form one time.
-$TimeSelectorRunOnce = $true
+    [boolean]$TimeSelectorRunOnce = $true,
 
-# Disabled and with Bing API --> Current timezone and geo timezone will be compared; if different, form will be displayed
-# Enabled --> the selection will always show
-$ForceTimeSelection = $false
+    [switch]$ForceTimeSelection,
+    
+    [switch]$AutoTimeSelection
+)
 
-# Enabled with Bing API --> No prompt for user, time will update on it own
-# Enabled without Bing API --> User will be prompted at least once
-# Ignored if ForceTimeSelection is enabled
-$AutoTimeSelection = $false
-
-#$VerbosePreference = 'Continue'
-$VerbosePreference = 'Continue'
 #===========================================================================
 # XAML LANGUAGE
 #===========================================================================
@@ -265,7 +260,7 @@ If($UserDriven){$RegHive = 'HKCU:'}Else{$RegHive = 'HKLM:'}
 #if unable to create key, deployment or permission may need to change 
 Try{
     If(-not(Test-Path "$RegHive\SOFTWARE\TimezoneSelector") ){
-        New-ItemProperty -Path "$RegHive\SOFTWARE" -nAME "TimezoneSelector" -ErrorAction Stop -Verbose:$VerbosePreference | Out-Null       
+        New-ItemProperty -Path "$RegHive\SOFTWARE" -nAME "TimezoneSelector" -ErrorAction Stop -Verbose | Out-Null       
     }
 }
 Catch{
@@ -276,17 +271,13 @@ Catch{
 #===========================================================================
 # Actually make the objects work
 #===========================================================================
-#get the current timezone and display it in UI
-#$DefaultTime = (Get-TimeZone).DisplayName
-#$WPFCurrentTZ.Text = $WPFCurrentTZ.Text -replace "@anchor",$DefaultTime
-
 #grab all timezones and add to list
 function Get-GEOTimeZone {
     param(
         [CmdletBinding()]
-        [string]$ipStackAPIKey,
-        [string]$bingMapsAPIKey,
-        [switch]$AttemptOnline
+        [string]$IpStackAPIKey,
+        [string]$BingMapsAPIKey,
+        [boolean]$AttemptOnline
     )
     Begin{
         ## Get the name of this function
@@ -297,32 +288,36 @@ function Get-GEOTimeZone {
         }
     }
     Process{
-        If($PSBoundParameters.ContainsKey('AttemptOnline')){
+        If($AttemptOnline){
             Write-Verbose "Attempting to check online for timezone"
-            Write-Verbose "IPStack API: $ipStackAPIKey"
-            Write-Verbose "Bing Maps API: $bingMapsAPIKey"
+            Write-Verbose "IPStack API: $IpStackAPIKey"
+            Write-Verbose "Bing Maps API: $BingMapsAPIKey"
 
-            # Hide the api keys from logs to prevent manipulation API's
-            # This area was designed for Intune Managment Extension
             $intuneManagementExtensionLogPath = "$env:ProgramData\Microsoft\IntuneManagementExtension\Logs\IntuneManagementExtension.log"
-            (Get-Content -Path $intuneManagementExtensionLogPath).replace($ipStackAPIKey,'<sensitive data>')| Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
-            (Get-Content -Path $intuneManagementExtensionLogPath).replace($bingMapsAPIKey,'<sensitive data>')| Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
 
             #grab public IP and its geo location
             try {
-                $geoIP = Invoke-RestMethod -Uri "http://api.ipstack.com/check?access_key=$($ipStackAPIKey)" -ErrorAction Stop -ErrorVariable $ErrorGeoIP
+                $geoIP = Invoke-RestMethod -Uri "http://api.ipstack.com/check?access_key=$($IpStackAPIKey)" -ErrorAction Stop -ErrorVariable $ErrorGeoIP
                 Write-Verbose "Detected that $($geoIP.ip) is located in $($geoIP.country_name) at $($geoIP.latitude),$($geoIP.longitude)"
             }
             Catch {
                 Write-Verbose "Error obtaining coordinates or public IP address" 
             }
+            Finally{
+                # Hide the api keys from logs to prevent manipulation API's
+                (Get-Content -Path $intuneManagementExtensionLogPath).replace($IpStackAPIKey,'<sensitive data>') | Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
+            }
 
             #determine geo location's timezone
             try {
-                $timeZone = Invoke-RestMethod -Uri "https://dev.virtualearth.net/REST/v1/timezone/$($geoIP.latitude),$($geoIP.longitude)?key=$($bingMapsAPIKey)" -ErrorAction Stop -ErrorVariable $ErrortimeZone
+                $timeZone = Invoke-RestMethod -Uri "https://dev.virtualearth.net/REST/v1/timezone/$($geoIP.latitude),$($geoIP.longitude)?key=$($BingMapsAPIKey)" -ErrorAction Stop -ErrorVariable $ErrortimeZone  
             }
             catch {
                 Write-Verbose "Error obtaining Timezone from Bing Maps API"
+            }
+            Finally{
+                # Hide the api keys from logs to prevent manipulation API's
+                (Get-Content -Path $intuneManagementExtensionLogPath).replace($BingMapsAPIKey,'<sensitive data>')| Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
             }
 
             #if above worked, get selected time
@@ -351,7 +346,7 @@ function Get-GEOTimeZone {
 #find a time zone to select
 
 #splat if values exist
-If([string]::IsNullOrEmpty($ipStackAPIKey) -and [string]::IsNullOrEmpty($bingMapsAPIKey)){
+If( ([string]::IsNullOrEmpty($IpStackAPIKey)) -or ([string]::IsNullOrEmpty($BingMapsAPIKey)) ){
     $WPFtargetTZ_label.Text = $WPFtargetTZ_label.Text -replace "@anchor","What time zone are you in?"
     $params = @{
         AttemptOnline=$false
@@ -362,8 +357,8 @@ Else{
     $WPFtargetTZ_label.Text = $WPFtargetTZ_label.Text -replace "@anchor","Is this the time zone your in?"
     $params = @{
         AttemptOnline=$true
-        ipStackAPIKey=$ipStackAPIKey
-        bingMapsAPIKey=$bingMapsAPIKey
+        ipStackAPIKey=$IpStackAPIKey
+        bingMapsAPIKey=$BingMapsAPIKey
         Verbose=$VerbosePreference
     }
 }
@@ -383,7 +378,7 @@ If($AutoTimeSelection){
     Write-Verbose "Auto Selection enabled"
     Write-Verbose ("Attempting to auto set Time Zone to: {0}" -f $TargetGEOTimeZone.id)
     Set-TimeZone $TargetGEOTimeZone.id
-    Start-Service W32Time -ErrorAction SilentlyContinue | Restart-Service -ErrorAction SilentlyContinue -Verbose:$VerbosePreference
+    Start-Service W32Time | Restart-Service -ErrorAction SilentlyContinue
 }
 
 #compare the GEO Targeted timezone verses the current timezone
@@ -401,9 +396,9 @@ $WPFChangeTZButton.Add_Click({
 
     Write-Verbose ("Time Zone set: {0}" -f $TargetGEOTimeZone.id)
     #build registry key for time selector
-    Set-ItemProperty -Path "$RegHive\SOFTWARE\TimezoneSelector" -Name TimeZoneSelected -Value "$($TargetGEOTimeZone.id)" -Force -ErrorAction Stop -Verbose:$VerbosePreference | Out-Null
+    Set-ItemProperty -Path "$RegHive\SOFTWARE\TimezoneSelector" -Name TimeZoneSelected -Value "$($TargetGEOTimeZone.id)" -Force -ErrorAction Stop | Out-Null
 
-    Start-Service W32Time -ErrorAction SilentlyContinue | Restart-Service -ErrorAction SilentlyContinue -Verbose:$VerbosePreference
+    Get-Service W32Time | Restart-Service -ErrorAction SilentlyContinue
     Stop-TimeSelectorForm -StatusHive $RegHive})
 
 #====================
@@ -414,13 +409,13 @@ function Start-TimeSelectorForm{
         [CmdletBinding()]
         [string]$StatusHive
     )
-    Set-ItemProperty -Path "$StatusHive\SOFTWARE\TimezoneSelector" -Name Status -Value "Running" -Force -ErrorAction SilentlyContinue -Verbose:$VerbosePreference | Out-Null
+    Set-ItemProperty -Path "$StatusHive\SOFTWARE\TimezoneSelector" -Name Status -Value "Running" -Force -ErrorAction SilentlyContinue | Out-Null
     
     Try{
         $Form.ShowDialog() | Out-Null
     }
     Catch{
-        Set-ItemProperty -Path "$StatusHive\SOFTWARE\TimezoneSelector" -Name Status -Value 'Failed' -Force -ErrorAction Stop -Verbose:$VerbosePreference | Out-Null
+        Set-ItemProperty -Path "$StatusHive\SOFTWARE\TimezoneSelector" -Name Status -Value 'Failed' -Force -ErrorAction Stop | Out-Null
     }
 }
 
@@ -434,7 +429,7 @@ function Stop-TimeSelectorForm{
     If($CustomStatus){$status = $CustomStatus}
     Else{$status = 'Completed'}
 
-    Set-ItemProperty -Path "$StatusHive\SOFTWARE\TimezoneSelector" -Name Status -Value $status -Force -ErrorAction Stop -Verbose:$VerbosePreference | Out-Null
+    Set-ItemProperty -Path "$StatusHive\SOFTWARE\TimezoneSelector" -Name Status -Value $status -Force -ErrorAction Stop | Out-Null
     $Form.Close() | Out-Null
 }
 
@@ -444,14 +439,14 @@ function Stop-TimeSelectorForm{
 
 # found that if script is called by Intune, the script may be running multiple times if the ESP screen process takes a while
 # Only allow the script to run once if it is already being displayed
-If((Get-ItemProperty "$RegHive\SOFTWARE\TimezoneSelector" -Name Status).Status -eq "Running"){
+If($ForceTimeSelection){
+    #run form all the time
+    Write-Verbose ("'Force Selection' parameter called: Form will be displayed")
+    Start-TimeSelectorForm -StatusHive $RegHive
+}
+ElseIf((Get-ItemProperty "$RegHive\SOFTWARE\TimezoneSelector" -Name Status).Status -eq "Running"){
     Write-Verbose "Detected that TimeSelector form is running. Exiting"
     Exit
-}
-ElseIf($ForceTimeSelection){
-    #run form all the time
-    Write-Verbose ("Force Selection scenario enabled: Form will be displayed")
-    Start-TimeSelectorForm -StatusHive $RegHive
 }
 ElseIf($TimeComparisonDiffers -eq $true){
     #Only run if time compared differs
