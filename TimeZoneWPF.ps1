@@ -40,6 +40,11 @@
         Enabled with Bing API --> No prompt for user, time will update on it own
         Enabled without Bing API --> User will be prompted at least once
         Ignored if ForceTimeSelection is enabled
+    
+    .PARAMETER SetTimeDate
+        Enabled with Bing API
+        Set local time and date based on GEO location
+        Requires administrative permissions
 
     .EXAMPLE
         PS> .\TimeZoneWPF.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
@@ -52,9 +57,9 @@
         This will always display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected
 
     .EXAMPLE
-        PS> .\TimeZoneWPF.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -AutoTimeSelection
+        PS> .\TimeZoneWPF.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -AutoTimeSelection -SetTimeDate
 
-        This will set the time automatically using the IP GEO location without prompting user. If API not provided, time will not change the time
+        This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
 
     .EXAMPLE
         PS> .\TimeZoneWPF.ps1 -UserDriven $false
@@ -71,7 +76,7 @@
 # CONTROL VARIABLES
 #===========================================================================
 
-[CmdletBinding(SupportsShouldProcess=$True)]
+[CmdletBinding()]
 param(
     [string]$IpStackAPIKey = "",
     
@@ -83,7 +88,9 @@ param(
 
     [switch]$ForceTimeSelection,
     
-    [switch]$AutoTimeSelection
+    [switch]$AutoTimeSelection,
+
+    [switch]$SetTimeDate
 )
 
 #===========================================================================
@@ -244,14 +251,14 @@ $xaml.SelectNodes("//*[@Name]") | %{Set-Variable -Name "WPF$($_.Name)" -Value $F
 
 Function Get-FormVariables{
     if ($global:ReadmeDisplay -ne $true){
-        Write-host "To reference this display again, run Get-FormVariables" -ForegroundColor Yellow;
+        Write-Verbose "To reference this display again, run Get-FormVariables"
         $global:ReadmeDisplay=$true
     }
-    write-host "Found the following interactable elements from our form" -ForegroundColor Cyan
-    get-variable WPF*
+    Write-Verbose "Displaying interactable elements from the form"
+    Get-Variable WPF*
 }
 
-#Get-FormVariables
+If($DebugPreference){Get-FormVariables}
 
 #Set registry hive for user or local machine
 If($UserDriven){$RegHive = 'HKCU:'}Else{$RegHive = 'HKLM:'}
@@ -277,7 +284,8 @@ function Get-GEOTimeZone {
         [CmdletBinding()]
         [string]$IpStackAPIKey,
         [string]$BingMapsAPIKey,
-        [boolean]$AttemptOnline
+        [boolean]$AttemptOnline,
+        [boolean]$ChangeTimeDate
     )
     Begin{
         ## Get the name of this function
@@ -289,7 +297,7 @@ function Get-GEOTimeZone {
     }
     Process{
         If($AttemptOnline){
-            Write-Verbose "Attempting to check online for timezone"
+            Write-Verbose "Checking GEO Coordinates by IP for timezone..."
             Write-Verbose "IPStack API: $IpStackAPIKey"
             Write-Verbose "Bing Maps API: $BingMapsAPIKey"
 
@@ -325,12 +333,21 @@ function Get-GEOTimeZone {
             Write-Verbose "Detected Correct time zone as '$($correctTimeZone)'"
             If($correctTimeZone){$SelectedTimeZone = [string](Get-TimeZone -id $correctTimeZone).DisplayName}
 
+            If($ChangeTimeDate){
+                $geoTimeDate = $timeZone.resourceSets.resources.timeZone.ConvertedTime | Select -ExpandProperty localTime
+                try {
+                    Write-Verbose ("Attempting to set local time to: {0}" -f (Get-Date $geoTimeDate))
+                    Set-Date $geoTimeDate -ErrorAction Stop
+                }
+                catch {
+                    Write-Verbose ("Error setting time and date from Bing Maps API: {0}" -f $_.Exception.Message)
+                } 
+            }
         }
 
         #confirm if time zone value exists, if not default to current time
         If(!$SelectedTimeZone){
-            $SelectedTimeZone = [string](Get-TimeZone).DisplayName
-            #$TargetTime = '(UTC-08:00) Pacific Time (US & Canada)'  
+            $SelectedTimeZone = [string](Get-TimeZone).DisplayName 
         }
     }
     End{
@@ -363,6 +380,16 @@ Else{
     }
 }
 
+If($SetTimeDate){
+    $params += @{
+        ChangeTimeDate=$true
+    }
+}Else{
+    $params += @{
+        ChangeTimeDate=$false
+    }
+}
+
 #grab Geo Timezone
 $TargetGEOTimeZone = Get-GEOTimeZone @params
 
@@ -375,8 +402,8 @@ $WPFtargetTZ_listBox.ScrollIntoView($WPFtargetTZ_listBox.Items[$WPFtargetTZ_list
 
 #if autoselection is enabled, attempt setting the time zone
 If($AutoTimeSelection){
-    Write-Verbose "Auto Selection enabled"
-    Write-Verbose ("Attempting to auto set Time Zone to: {0}" -f $TargetGEOTimeZone.id)
+    Write-Verbose "Auto Selection parameter used"
+    Write-Verbose ("Attempting to auto set Time Zone to: {0}..." -f $TargetGEOTimeZone.id)
     Set-TimeZone $TargetGEOTimeZone.id
     Start-Service W32Time | Restart-Service -ErrorAction SilentlyContinue
 }
