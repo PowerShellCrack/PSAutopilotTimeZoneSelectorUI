@@ -2,13 +2,13 @@
 <#
     .SYNOPSIS
         Prompts user to set time zone
-
+    
     .DESCRIPTION
 		Prompts user to set time zone using windows presentation framework
         Can be used in:
             - SCCM Tasksequences (User interface allowed)
             - SCCM Software Delivery (User interface allowed)
-            - Intune Autopilot
+            - Intune Autopilot 
 
     .NOTES
         Launches in full screen using WPF
@@ -23,12 +23,12 @@
 
     .PARAMETER BingMapsAPIKeyy
         Used to get the Windows TimeZone value of the location coordinates. get the API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
-
+    
     .PARAMETER UserDriven
         deploy to user sets either HKCU key or HKLM key
         Set to true if the deployment is for autopilot
         NOTE: Permission required for HKLM
-
+    
     .PARAMETER OnlyRunOnce
         Specify that this script will only launch the form one time.
 
@@ -62,14 +62,14 @@
         This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
 
     .EXAMPLE
-        PS> .\Win10_TimeZoneUI.ps1 -UserDriven $false
+        PS> .\TimeZoneUI.ps1 -UserDriven:$false
 
         Writes a registry key in HKLM hive to determine run status
 
     .EXAMPLE
-        PS> .\Win10_TimeZoneUI.ps1 -OnlyRunOnce $true
+        PS> .\TimeZoneUI.ps1 -OnlyRunOnce:$true
 
-        Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed.
+        Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed. 
 #>
 
 #===========================================================================
@@ -102,7 +102,7 @@ Function Test-WinPE{
     return Test-Path -Path Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlset\Control\MiniNT
   }
   #endregion
-
+  
   #region FUNCTION: Check if running in ISE
   Function Test-IsISE {
       # try...catch accounts for:
@@ -115,7 +115,7 @@ Function Test-WinPE{
       }
   }
   #endregion
-
+  
   #region FUNCTION: Check if running in Visual Studio Code
   Function Test-VSCode{
       if($env:TERM_PROGRAM -eq 'vscode') {
@@ -126,7 +126,7 @@ Function Test-WinPE{
       }
   }
   #endregion
-
+  
   #region FUNCTION: Find script path for either ISE or console
   Function Get-ScriptPath {
       <#
@@ -139,7 +139,7 @@ Function Test-WinPE{
       param(
           [switch]$Parent
       )
-
+  
       Begin{}
       Process{
           if ($PSScriptRoot -eq "")
@@ -161,14 +161,14 @@ Function Test-WinPE{
           }
       }
       End{
-
+  
           If($Parent){
               Split-Path $ScriptPath -Parent
           }Else{
               $ScriptPath
           }
       }
-
+  
   }
   #endregion
 
@@ -402,14 +402,14 @@ $XAML = @"
                     <Setter.Value>
                         <ControlTemplate TargetType="Button" >
 
-                            <Border Name="border"
+                            <Border Name="border" 
                                 BorderThickness="1"
-                                Padding="4,2"
-                                BorderBrush="#336891"
-                                CornerRadius="1"
+                                Padding="4,2" 
+                                BorderBrush="#336891" 
+                                CornerRadius="1" 
                                 Background="#0078d7">
-                                <ContentPresenter HorizontalAlignment="Center"
-                                                VerticalAlignment="Center"
+                                <ContentPresenter HorizontalAlignment="Center" 
+                                                VerticalAlignment="Center" 
                                                 TextBlock.TextAlignment="Center"
                                                 />
                             </Border>
@@ -652,7 +652,7 @@ If(Test-WinPE -or Test-IsISE){[System.Reflection.Assembly]::LoadWithPartialName(
 #convert to XML
 [xml]$XAML = $XAML
 #Read XAML
-$reader=(New-Object System.Xml.XmlNodeReader $xaml)
+$reader=(New-Object System.Xml.XmlNodeReader $xaml) 
 try{$TZSelectUI=[Windows.Markup.XamlReader]::Load( $reader )}
 catch{Write-Host "Unable to load Windows.Markup.XamlReader. Double-check syntax and ensure .net is installed."}
 
@@ -677,7 +677,7 @@ If($DebugPreference){Get-FormVariables}
 If($UserDriven -eq $false){$RegHive = 'HKLM:'}Else{$RegHive = 'HKCU:'}
 $RegPath = "SOFTWARE\PowerShellCrack\TimeZoneSelector"
 # Build registry key for status and selection
-#if unable to create key, deployment or permission may need to change
+#if unable to create key, deployment or permission may need to change 
 Try{
     If(-not(Test-Path "$RegHive\$RegPath") ){
         New-Item -Path "$RegHive\SOFTWARE" -Name "PowerShellCrack" -ErrorAction SilentlyContinue | Out-Null
@@ -972,7 +972,7 @@ Else{
 }
 
 #if set, script will attempt to change time and sat without user intervention
-If($PSBoundParameters.ContainsKey('UpdateTime')){
+If($UpdateTime){
     $params += @{
         ChangeTimeDate=$true
     }
@@ -1016,7 +1016,7 @@ If($AutoTimeSelection)
     Update-DeviceTimeZone -SelectedInput $ui_lbxTimeZoneList.SelectedItem -DefaultTimeZone ($Global:CurrentTimeZone).DisplayName
 
     #update the time and date
-    If($PSBoundParameters.ContainsKey('UpdateTime') ){Set-NTPDateTime -sNTPServer 'pool.ntp.org'}
+    If($UpdateTime ){Set-NTPDateTime -sNTPServer 'pool.ntp.org'}
 
     #log changes to registry
     Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $ui_lbxTimeZoneList.SelectedItem -Force -ErrorAction SilentlyContinue

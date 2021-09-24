@@ -19,79 +19,33 @@ Windows 11 (coming soon)
 
 ## How to Use
 
+Parameter | Type| Explanation | Requirements
+-- | -- | -- | --
+IpStackAPIKey | string |  Used to get geoCoordinates of the public IP. get the API key from <https://ipstack.com>
+BingMapsAPIKey | string |  Used to get the Windows TimeZone value of the location coordinates. get the API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
+UserDriven | Boolean (true or False) | Deploy to user when set to true. sets either HKCU key or HKLM key. Set to true if the deployment is for autopilot | Permission required for HKLM
+OnlyRunOnce | Boolean (true or False) |  Specify that this script will only launch the form one time.
+ForceTimeSelection | Switch | Disabled and with Bing API --> Current timezone and geo timezone will be compared; if different, form will be displayed. Enabled --> the selection will always show
+AutoTimeSelection | Switch | Enabled with Bing API --> No prompt for user, time will update on it own. Enabled without Bing API --> User will be prompted at least once. Ignored if ForceTimeSelection is enabled
+UpdateTime | Switch | Used only with IPstack and Bing API. Set local time and date (NOT TIMEZONE) based on GEO location | Requires administrative permissions
+
+Examples
 ```powershell
+#Uses IP GEO location for the pre-selection
+.\TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
 
-<#
-    .SYNOPSIS
-        Prompts user to set time zone
+#This will always display the time selection screen;
+.\TimeZoneUI.ps1 -ForceTimeSelection
 
-    .DESCRIPTION
-		Prompts user to set time zone using windows presentation framework
-        Can be used in:
-            - SCCM Tasksequences (User interface allowed)
-            - SCCM Software Delivery (User interface allowed)
-            - Intune Autopilot
+#This will set the time automatically using the IP GEO location without prompting user.
+.\TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -AutoTimeSelection -UpdateTime
 
-    .NOTES
-        Launches in full screen using WPF
+# Writes a registry key in HKLM hive to determine run status
+.\TimeZoneUI.ps1 -UserDriven:$false
 
-    .LINK
-        https://matthewjwhite.co.uk/2019/04/18/intune-automatically-set-timezone-on-new-device-build/
-        https://ipstack.com
-        https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
+#Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed.
+.\TimeZoneUI.ps1 -OnlyRunOnce:$true
 
-    .PARAMETER IpStackAPIKey
-        Used to get geoCoordinates of the public IP. get the API key from https://ipstack.com
-
-    .PARAMETER BingMapsAPIKeyy
-        Used to get the Windows TimeZone value of the location coordinates. get the API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
-
-    .PARAMETER UserDriven
-        deploy to user sets either HKCU key or HKLM key
-        Set to true if the deployment is for autopilot
-        NOTE: Permission required for HKLM
-
-    .PARAMETER OnlyRunOnce
-        Specify that this script will only launch the form one time.
-
-    .PARAMETER ForceTimeSelection
-        Disabled and with Bing API --> Current timezone and geo timezone will be compared; if different, form will be displayed
-        Enabled --> the selection will always show
-
-    .PARAMETER AutoTimeSelection
-        Enabled with Bing API --> No prompt for user, time will update on it own
-        Enabled without Bing API --> User will be prompted at least once
-        Ignored if ForceTimeSelection is enabled
-
-    .PARAMETER UpdateTime
-        Used only with IPstack and Bing API
-        Set local time and date (NOT TIMEZONE) based on GEO location
-        Requires administrative permissions
-
-    .EXAMPLE
-        PS> .\TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
-
-        Uses IP GEO location for the pre-selection
-
-    .EXAMPLE
-        PS> .\TimeZoneUI.ps1 -ForceTimeSelection
-
-        This will always display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected
-
-    .EXAMPLE
-        PS> .\TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -AutoTimeSelection -UpdateTime
-
-        This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
-
-    .EXAMPLE
-        PS> .\TimeZoneUI.ps1 -UserDriven $false
-
-        Writes a registry key in HKLM hive to determine run status
-
-    .EXAMPLE
-        PS> .\TimeZoneUI.ps1 -OnlyRunOnce $true
-
-        Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed.
 #>
 ```
 
@@ -102,7 +56,20 @@ Windows 11 (coming soon)
 - This is only tested on a single user device. have not tested it on multiuser or Kiosk device.
 - This runs in User context but for the device
 
+_NOTE:_ This script does have parameters. When importing scripts into Intune, you don't have the option for parameters. 
 
+**If you want more granular controls** during deployment, copy theses parameters as variables to line 95, just after the original parameter calls. Set the values as needed (read the _How to use_ section to understand each variable)
+
+```powershell
+[string]$IpStackAPIKey = ""
+[string]$BingMapsAPIKey = ""
+[boolean]$UserDriven = $true
+[boolean]$OnlyRunOnce = $true
+[boolean]$ForceTimeSelection = $false
+[boolean]$AutoTimeSelection = $false
+[boolean]$UpdateTime = $false
+```
+**Import steps:**
 1. Login into <https://endpoint.microsoft.com>
 1. Navigate to Devices-->Scripts
 1. Click _Add_ --> Windows 10 and Later

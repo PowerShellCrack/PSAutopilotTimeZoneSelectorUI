@@ -62,12 +62,12 @@
         This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
 
     .EXAMPLE
-        PS> .\TimeZoneUI.ps1 -UserDriven $false
+        PS> .\TimeZoneUI.ps1 -UserDriven:$false
 
         Writes a registry key in HKLM hive to determine run status
 
     .EXAMPLE
-        PS> .\TimeZoneUI.ps1 -OnlyRunOnce $true
+        PS> .\TimeZoneUI.ps1 -OnlyRunOnce:$true
 
         Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed.
 #>
@@ -657,7 +657,7 @@ Else{
 }
 
 #if set, script will attempt to change time and sat without user intervention
-If($PSBoundParameters.ContainsKey('UpdateTime')){
+If($UpdateTime){
     $params += @{
         ChangeTimeDate=$true
     }
@@ -701,7 +701,7 @@ If($AutoTimeSelection)
     Update-DeviceTimeZone -SelectedInput $ui_targetTZ_listBox.SelectedItem -DefaultTimeZone ($Global:CurrentTimeZone).DisplayName
 
     #update the time and date
-    If($PSBoundParameters.ContainsKey('UpdateTime') ){Set-NTPDateTime -sNTPServer 'pool.ntp.org'}
+    If($UpdateTime ){Set-NTPDateTime -sNTPServer 'pool.ntp.org'}
 
     #log changes to registry
     Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $ui_targetTZ_listBox.SelectedItem -Force -ErrorAction SilentlyContinue
