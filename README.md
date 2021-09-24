@@ -3,14 +3,17 @@
 ## Overview
 I wrote this UI in PowerShell for devices to users to change the time zone on the device. This was originally intended for a user to select their timezone on first logon. I wanted the this to popup to look and feel like something from Windows Out-of-Box-Experience (OOBE).
 
-![Alt_text](https://1.bp.blogspot.com/-4A1HjymzCik/XfWWtuKcFTI/AAAAAAAAWJM/Ae36IYLmsIAOXQl4PP9wHvdDYZbkovPAgCLcBGAsYHQ/s1600/Set-timeone.PNG)
+Simple
+![Alt_text](.images/original.PNG)
 
-![Alt_text](https://2.bp.blogspot.com/-Ni2wM-CS7ik/XfWWcTREKDI/AAAAAAAAWJE/J8y1FdYBCeMG-2TaPHDJIivHmnixMYpLwCLcBGAsYHQ/s1600/Set-timeone_select.PNG)
+Windows 10 OOBE version
+![Alt_text](.images/win10_version.PNG)
 
 
 ## Read to deploy?
 
 ### For Autopilot
+
 - This is only tested on a single user device. have not tested it on multiuser or Kiosk device.
 - This runs in User context but for the device
 
