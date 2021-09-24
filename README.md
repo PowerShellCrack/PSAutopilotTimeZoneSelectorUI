@@ -1,13 +1,16 @@
 # Select Time Zone
 
 ## Overview
+
 I wrote this UI in PowerShell for devices to users to change the time zone on the device. This was originally intended for a user to select their timezone on first logon. I wanted the this to popup to look and feel like something from Windows Out-of-Box-Experience (OOBE).
 
 Simple
 ![Alt_text](.images/original.PNG)
 
 Windows 10 OOBE version
-![Alt_text](.images/win10_version.PNG)
+![Alt_text](.images/win10_version.png)
+
+Windows 11 (coming soon)
 
 
 ## Read to deploy?
