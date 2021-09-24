@@ -26,7 +26,7 @@
     
     .PARAMETER UserDriven
         deploy to user sets either HKCU key or HKLM key
-        Set to true if the deployment is for  autopilot 
+        Set to true if the deployment is for autopilot
         NOTE: Permission required for HKLM
     
     .PARAMETER OnlyRunOnce
@@ -47,27 +47,27 @@
         Requires administrative permissions
 
     .EXAMPLE
-        PS> .\TimeZoneWPF.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
+        PS> .\TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
 
         Uses IP GEO location for the pre-selection
 
     .EXAMPLE
-        PS> .\TimeZoneWPF.ps1 -ForceTimeSelection
+        PS> .\TimeZoneUI.ps1 -ForceTimeSelection
 
         This will always display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected
 
     .EXAMPLE
-        PS> .\TimeZoneWPF.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -AutoTimeSelection -UpdateTime
+        PS> .\TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -AutoTimeSelection -UpdateTime
 
         This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
 
     .EXAMPLE
-        PS> .\TimeZoneWPF.ps1 -UserDriven $false
+        PS> .\TimeZoneUI.ps1 -UserDriven $false
 
         Writes a registry key in HKLM hive to determine run status
 
     .EXAMPLE
-        PS> .\TimeZoneWPF.ps1 -OnlyRunOnce $true
+        PS> .\TimeZoneUI.ps1 -OnlyRunOnce $true
 
         Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed. 
 #>
@@ -345,7 +345,7 @@ catch{Write-Host "Unable to load Windows.Markup.XamlReader. Double-check syntax 
 # Store Form Objects In PowerShell
 #===========================================================================
 #take the xaml properties and make them variables
-$xaml.SelectNodes("//*[@Name]") | %{Set-Variable -Name "WPF$($_.Name)" -Value $TZSelectUI.FindName($_.Name)}
+$xaml.SelectNodes("//*[@Name]") | %{Set-Variable -Name "ui_$($_.Name)" -Value $TZSelectUI.FindName($_.Name)}
 
 Function Get-FormVariables{
     if ($global:ReadmeDisplay -ne $true){
@@ -353,7 +353,7 @@ Function Get-FormVariables{
         $global:ReadmeDisplay=$true
     }
     Write-Verbose "Displaying elements from the form"
-    Get-Variable WPF*
+    Get-Variable ui_*
 }
 
 If($DebugPreference){Get-FormVariables}
@@ -516,12 +516,6 @@ function Set-NTPDateTime
 
 
 function Get-GEOTimeZone {
-    <#TestVALUES
-    ChangeTimeDate = $False
-    ChangeTimeDate = $True
-    $IpStackAPIKey = "4bd144c23e13947562b73ca8644aa431"
-    $BingMapsAPIKey = "jUlu0OeOFH1lnaEguATq~jsWx3mwGEPGZLTx3mrthRg~Am6mxTSwW8oEPs8qutKUjbRtufqYOU8ixvjcJ0DyLZAWSXxrF6Bo7cCk5QrlL5qm"
-    #>
     param(
         [CmdletBinding()]
         [string]$IpStackAPIKey,
@@ -615,7 +609,7 @@ function Get-GEOTimeZone {
 
 Function Update-DeviceTimeZone{
     <#TEST VALUES
-    $SelectedInput=$WPFtargetTZ_listBox.SelectedItem
+    $SelectedInput=$ui_targetTZ_listBox.SelectedItem
     $DefaultTimeZone=(Get-TimeZone).DisplayName
     #>
     param(
@@ -648,13 +642,13 @@ Function Update-DeviceTimeZone{
 
 #splat Params. Check if IPstack and Bingmap values DO NOT EXIST; use default timeseletions
 If(  ([string]::IsNullOrEmpty($IpStackAPIKey)) -or ([string]::IsNullOrEmpty($BingMapsAPIKey)) ){
-    $WPFtargetTZ_label.Text = $WPFtargetTZ_label.Text -replace "@anchor","What time zone are you in?"
+    $ui_targetTZ_label.Text = $ui_targetTZ_label.Text -replace "@anchor","What time zone are you in?"
     $params = @{
         Verbose=$VerbosePreference
     }
 }
 Else{
-    $WPFtargetTZ_label.Text = $WPFtargetTZ_label.Text -replace "@anchor","Is this the time zone your in?"
+    $ui_targetTZ_label.Text = $ui_targetTZ_label.Text -replace "@anchor","Is this the time zone your in?"
     $params = @{
         ipStackAPIKey=$IpStackAPIKey
         bingMapsAPIKey=$BingMapsAPIKey
@@ -677,7 +671,7 @@ Else{
 
 
 #Get all timezones and load it to combo box
-$AllTimeZones.DisplayName | ForEach-object {$WPFtargetTZ_listBox.Items.Add($_)} | Out-Null
+$AllTimeZones.DisplayName | ForEach-object {$ui_targetTZ_listBox.Items.Add($_)} | Out-Null
 
 #grab Geo Timezone
 <#TEST Timezones
@@ -691,11 +685,11 @@ $TargetGeoTzObj = Get-GEOTimeZone @params
 Write-Verbose ("Detected Time Zone is: {0}" -f $TargetGeoTzObj.id)
 
 #select current time zone
-$WPFtargetTZ_listBox.SelectedItem = $TargetGeoTzObj.DisplayName
+$ui_targetTZ_listBox.SelectedItem = $TargetGeoTzObj.DisplayName
 
 #scrolls list to current selected item
 #+3 below to center selected item on screen
-$WPFtargetTZ_listBox.ScrollIntoView($WPFtargetTZ_listBox.Items[$WPFtargetTZ_listBox.SelectedIndex+3])
+$ui_targetTZ_listBox.ScrollIntoView($ui_targetTZ_listBox.Items[$ui_targetTZ_listBox.SelectedIndex+3])
 
 #if autoselection is enabled, attempt setting the time zone
 If($AutoTimeSelection)
@@ -704,13 +698,13 @@ If($AutoTimeSelection)
     Write-Verbose ("Attempting to auto set Time Zone to: {0}..." -f $TargetGeoTzObj.id)
 
     #update the time zone
-    Update-DeviceTimeZone -SelectedInput $WPFtargetTZ_listBox.SelectedItem -DefaultTimeZone ($Global:CurrentTimeZone).DisplayName
+    Update-DeviceTimeZone -SelectedInput $ui_targetTZ_listBox.SelectedItem -DefaultTimeZone ($Global:CurrentTimeZone).DisplayName
 
     #update the time and date
     If($PSBoundParameters.ContainsKey('UpdateTime') ){Set-NTPDateTime -sNTPServer 'pool.ntp.org'}
 
     #log changes to registry
-    Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $WPFtargetTZ_listBox.SelectedItem -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $ui_targetTZ_listBox.SelectedItem -Force -ErrorAction SilentlyContinue
 }
 
 #compare the GEO Targeted timezone verses the current timezone
@@ -723,12 +717,12 @@ Else{
 }
 
 #when button is clicked changer time
-$WPFChangeTZButton.Add_Click({
+$ui_ChangeTZButton.Add_Click({
     #Set time zone
-    #Set-TimeZone $WPFtargetTZ_listBox.SelectedItem
-    Update-DeviceTimeZone -SelectedInput $WPFtargetTZ_listBox.SelectedItem -DefaultTimeZone $TargetGeoTzObj.DisplayName
+    #Set-TimeZone $ui_targetTZ_listBox.SelectedItem
+    Update-DeviceTimeZone -SelectedInput $ui_targetTZ_listBox.SelectedItem -DefaultTimeZone $TargetGeoTzObj.DisplayName
     #build registry key for time selector
-    Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $WPFtargetTZ_listBox.SelectedItem -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $ui_targetTZ_listBox.SelectedItem -Force -ErrorAction SilentlyContinue
     #close the UI
     Stop-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKey "$RegHive\$RegPath"
 	#If(!$isISE){Stop-Process $pid}

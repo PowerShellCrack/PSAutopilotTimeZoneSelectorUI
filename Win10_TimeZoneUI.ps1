@@ -11,7 +11,7 @@
             - Intune Autopilot 
 
     .NOTES
-        Launches in full screen using ui_
+        Launches in full screen using WPF
 
     .LINK
         https://matthewjwhite.co.uk/2019/04/18/intune-automatically-set-timezone-on-new-device-build/
@@ -26,7 +26,7 @@
     
     .PARAMETER UserDriven
         deploy to user sets either HKCU key or HKLM key
-        Set to true if the deployment is for  autopilot 
+        Set to true if the deployment is for autopilot
         NOTE: Permission required for HKLM
     
     .PARAMETER OnlyRunOnce
@@ -47,27 +47,27 @@
         Requires administrative permissions
 
     .EXAMPLE
-        PS> .\TimeZoneui_.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
+        PS> .\Win10_TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
 
         Uses IP GEO location for the pre-selection
 
     .EXAMPLE
-        PS> .\TimeZoneui_.ps1 -ForceTimeSelection
+        PS> .\Win10_TimeZoneUI.ps1 -ForceTimeSelection
 
         This will always display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected
 
     .EXAMPLE
-        PS> .\TimeZoneui_.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -AutoTimeSelection -UpdateTime
+        PS> .\Win10_TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -AutoTimeSelection -UpdateTime
 
         This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
 
     .EXAMPLE
-        PS> .\TimeZoneui_.ps1 -UserDriven $false
+        PS> .\Win10_TimeZoneUI.ps1 -UserDriven $false
 
         Writes a registry key in HKLM hive to determine run status
 
     .EXAMPLE
-        PS> .\TimeZoneui_.ps1 -OnlyRunOnce $true
+        PS> .\Win10_TimeZoneUI.ps1 -OnlyRunOnce $true
 
         Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed. 
 #>
@@ -642,12 +642,12 @@ $XAML = @"
 # LOAD ASSEMBLIES
 #=======================================================
 [System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms')  | out-null #creating Windows-based applications
-[System.Reflection.Assembly]::LoadWithPartialName('WindowsFormsIntegration')  | out-null # Call the EnableModelessKeyboardInterop; allows a Windows Forms control on a ui_ page.
+[System.Reflection.Assembly]::LoadWithPartialName('WindowsFormsIntegration')  | out-null # Call the EnableModelessKeyboardInterop; allows a Windows Forms control on a WPF page.
 If(Test-WinPE -or Test-IsISE){[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Application')  | out-null} #Encapsulates a Windows Presentation Foundation application.
 [System.Reflection.Assembly]::LoadWithPartialName('System.ComponentModel') | out-null #systems components and controls and convertors
 [System.Reflection.Assembly]::LoadWithPartialName('System.Data')           | out-null #represent the ADO.NET architecture; allows multiple data sources
-[System.Reflection.Assembly]::LoadWithPartialName('presentationframework') | out-null #required for ui_
-[System.Reflection.Assembly]::LoadWithPartialName('PresentationCore')      | out-null #required for ui_
+[System.Reflection.Assembly]::LoadWithPartialName('presentationframework') | out-null #required for WPF
+[System.Reflection.Assembly]::LoadWithPartialName('PresentationCore')      | out-null #required for WPF
 
 #convert to XML
 [xml]$XAML = $XAML
@@ -831,12 +831,6 @@ function Set-NTPDateTime
 
 
 function Get-GEOTimeZone {
-    <#TestVALUES
-    ChangeTimeDate = $False
-    ChangeTimeDate = $True
-    $IpStackAPIKey = "4bd144c23e13947562b73ca8644aa431"
-    $BingMapsAPIKey = "jUlu0OeOFH1lnaEguATq~jsWx3mwGEPGZLTx3mrthRg~Am6mxTSwW8oEPs8qutKUjbRtufqYOU8ixvjcJ0DyLZAWSXxrF6Bo7cCk5QrlL5qm"
-    #>
     param(
         [CmdletBinding()]
         [string]$IpStackAPIKey,

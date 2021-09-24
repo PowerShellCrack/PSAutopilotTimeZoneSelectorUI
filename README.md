@@ -2,16 +2,98 @@
 
 ## Overview
 
-I wrote this UI in PowerShell for users to change the time zone on their device. This was originally intended for a user to select their time zone on first logon right after AutoPilot ESP. I wanted the this to popup to look and feel like something from Windows Out-of-Box-Experience (OOBE).
+I wrote this UI in PowerShell for users to change the time zone on their device. This was originally intended for a user to select their time zone on first logon right after AutoPilot ESP because there is not time zone selection for during Autopilot.
 
-Simple
+## The Look
+
+I wanted the this to window to look and feel like something from Windows Out-of-Box-Experience (OOBE).
+
+Simple (TimeZoneUI.ps1)
 ![Alt_text](.images/original.PNG)
 
-Windows 10 OOBE version
+Windows 10 OOBE version (Win10_TimeZoneUI.ps1)
 ![Alt_text](.images/win10_version.png)
 
 Windows 11 (coming soon)
 
+
+## How to Use
+
+```powershell
+
+<#
+    .SYNOPSIS
+        Prompts user to set time zone
+    
+    .DESCRIPTION
+		Prompts user to set time zone using windows presentation framework
+        Can be used in:
+            - SCCM Tasksequences (User interface allowed)
+            - SCCM Software Delivery (User interface allowed)
+            - Intune Autopilot 
+
+    .NOTES
+        Launches in full screen using WPF
+
+    .LINK
+        https://matthewjwhite.co.uk/2019/04/18/intune-automatically-set-timezone-on-new-device-build/
+        https://ipstack.com
+        https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
+
+    .PARAMETER IpStackAPIKey
+        Used to get geoCoordinates of the public IP. get the API key from https://ipstack.com
+
+    .PARAMETER BingMapsAPIKeyy
+        Used to get the Windows TimeZone value of the location coordinates. get the API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
+    
+    .PARAMETER UserDriven
+        deploy to user sets either HKCU key or HKLM key
+        Set to true if the deployment is for autopilot
+        NOTE: Permission required for HKLM
+    
+    .PARAMETER OnlyRunOnce
+        Specify that this script will only launch the form one time.
+
+    .PARAMETER ForceTimeSelection
+        Disabled and with Bing API --> Current timezone and geo timezone will be compared; if different, form will be displayed
+        Enabled --> the selection will always show
+
+    .PARAMETER AutoTimeSelection
+        Enabled with Bing API --> No prompt for user, time will update on it own
+        Enabled without Bing API --> User will be prompted at least once
+        Ignored if ForceTimeSelection is enabled
+
+    .PARAMETER UpdateTime
+        Used only with IPstack and Bing API
+        Set local time and date (NOT TIMEZONE) based on GEO location
+        Requires administrative permissions
+
+    .EXAMPLE
+        PS> .\TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
+
+        Uses IP GEO location for the pre-selection
+
+    .EXAMPLE
+        PS> .\TimeZoneUI.ps1 -ForceTimeSelection
+
+        This will always display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected
+
+    .EXAMPLE
+        PS> .\TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -AutoTimeSelection -UpdateTime
+
+        This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
+
+    .EXAMPLE
+        PS> .\TimeZoneUI.ps1 -UserDriven $false
+
+        Writes a registry key in HKLM hive to determine run status
+
+    .EXAMPLE
+        PS> .\TimeZoneUI.ps1 -OnlyRunOnce $true
+
+        Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed. 
+#>
+```
 
 ## Read to deploy?
 

@@ -4,3 +4,4 @@ Samples/
 Samples/*
 MainWindow.xaml
 /SelectTimeZoneWPF/*
+Secrets.ps1
