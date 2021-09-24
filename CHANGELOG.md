@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.6.0 - Sept 23, 2021
+ - Added windows 10 OOBE UI
+ - Fixed settign time zone change; crashed at selection
+ - fixed API calls and added NTP change if enabled
+ - updated readme
+
 ## 1.5.2 - Apr 29, 2020
  - changed main script variables to parameters
  - moved changelog to markdown
