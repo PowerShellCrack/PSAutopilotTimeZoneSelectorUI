@@ -2,13 +2,13 @@
 <#
     .SYNOPSIS
         Prompts user to set time zone
-    
+
     .DESCRIPTION
 		Prompts user to set time zone using windows presentation framework
         Can be used in:
             - SCCM Tasksequences (User interface allowed)
             - SCCM Software Delivery (User interface allowed)
-            - Intune Autopilot 
+            - Intune Autopilot
 
     .NOTES
         Launches in full screen using WPF
@@ -23,12 +23,12 @@
 
     .PARAMETER BingMapsAPIKeyy
         Used to get the Windows TimeZone value of the location coordinates. get the API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
-    
+
     .PARAMETER UserDriven
         deploy to user sets either HKCU key or HKLM key
         Set to true if the deployment is for autopilot
         NOTE: Permission required for HKLM
-    
+
     .PARAMETER OnlyRunOnce
         Specify that this script will only launch the form one time.
 
@@ -69,7 +69,7 @@
     .EXAMPLE
         PS> .\TimeZoneUI.ps1 -OnlyRunOnce $true
 
-        Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed. 
+        Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed.
 #>
 
 #===========================================================================
@@ -102,7 +102,7 @@ Function Test-WinPE{
     return Test-Path -Path Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlset\Control\MiniNT
   }
   #endregion
-  
+
   #region FUNCTION: Check if running in ISE
   Function Test-IsISE {
       # try...catch accounts for:
@@ -115,7 +115,7 @@ Function Test-WinPE{
       }
   }
   #endregion
-  
+
   #region FUNCTION: Check if running in Visual Studio Code
   Function Test-VSCode{
       if($env:TERM_PROGRAM -eq 'vscode') {
@@ -126,7 +126,7 @@ Function Test-WinPE{
       }
   }
   #endregion
-  
+
   #region FUNCTION: Find script path for either ISE or console
   Function Get-ScriptPath {
       <#
@@ -139,7 +139,7 @@ Function Test-WinPE{
       param(
           [switch]$Parent
       )
-  
+
       Begin{}
       Process{
           if ($PSScriptRoot -eq "")
@@ -161,14 +161,14 @@ Function Test-WinPE{
           }
       }
       End{
-  
+
           If($Parent){
               Split-Path $ScriptPath -Parent
           }Else{
               $ScriptPath
           }
       }
-  
+
   }
   #endregion
 
@@ -227,14 +227,14 @@ $inputXML = @"
                     <Setter.Value>
                         <ControlTemplate TargetType="Button" >
 
-                            <Border Name="border" 
+                            <Border Name="border"
                                 BorderThickness="1"
-                                Padding="4,2" 
-                                BorderBrush="#FF1D3245" 
-                                CornerRadius="2" 
+                                Padding="4,2"
+                                BorderBrush="#FF1D3245"
+                                CornerRadius="2"
                                 Background="#00A4EF">
-                                <ContentPresenter HorizontalAlignment="Center" 
-                                                VerticalAlignment="Center" 
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
                                                 TextBlock.TextAlignment="Center"
                                                 />
                             </Border>
@@ -302,7 +302,7 @@ $inputXML = @"
     </Window.Resources>
 
     <Grid x:Name="background" HorizontalAlignment="Center" VerticalAlignment="Center" Height="600">
-    
+
         <TextBlock x:Name="targetTZ_label" HorizontalAlignment="Center" Text="@anchor" VerticalAlignment="Top" FontSize="48"/>
         <ListBox x:Name="targetTZ_listBox" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#FF1D3245" Foreground="#FFE8EDF9" FontSize="18" Width="700" Height="400" Margin="0,80,0,0" ScrollViewer.VerticalScrollBarVisibility="Visible" SelectionMode="Single"/>
         <Grid x:Name="msg" Width="700" Height="100" Margin="0,360,0,0" HorizontalAlignment="Center">
@@ -337,7 +337,7 @@ If(Test-WinPE -or Test-IsISE){[System.Reflection.Assembly]::LoadWithPartialName(
 
 [xml]$XAML = $inputXML
 #Read XAML
-$reader=(New-Object System.Xml.XmlNodeReader $xaml) 
+$reader=(New-Object System.Xml.XmlNodeReader $xaml)
 try{$TZSelectUI=[Windows.Markup.XamlReader]::Load( $reader )}
 catch{Write-Host "Unable to load Windows.Markup.XamlReader. Double-check syntax and ensure .net is installed."}
 
@@ -362,7 +362,7 @@ If($DebugPreference){Get-FormVariables}
 If($UserDriven -eq $false){$RegHive = 'HKLM:'}Else{$RegHive = 'HKCU:'}
 $RegPath = "SOFTWARE\PowerShellCrack\TimeZoneSelector"
 # Build registry key for status and selection
-#if unable to create key, deployment or permission may need to change 
+#if unable to create key, deployment or permission may need to change
 Try{
     If(-not(Test-Path "$RegHive\$RegPath") ){
         New-Item -Path "$RegHive\SOFTWARE" -Name "PowerShellCrack" -ErrorAction SilentlyContinue | Out-Null
