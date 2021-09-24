@@ -9,10 +9,10 @@ I wrote this UI in PowerShell for users to change the time zone on their device.
 I wanted the this to window to look and feel like something from Windows Out-of-Box-Experience (OOBE).
 
 Simple (TimeZoneUI.ps1)
-![Alt_text](.images/original.PNG)
+![Simple Selector screenshot](.images/original.PNG)
 
 Windows 10 OOBE version (Win10_TimeZoneUI.ps1)
-![Alt_text](.images/win10_version.png)
+![Windows 10 OOBE screenshot](.images/win10_version.png)
 
 Windows 11 (coming soon)
 
@@ -69,6 +69,7 @@ _NOTE:_ This script does have parameters. When importing scripts into Intune, yo
 [boolean]$AutoTimeSelection = $false
 [boolean]$UpdateTime = $false
 ```
+
 **Import steps:**
 1. Login into <https://endpoint.microsoft.com>
 1. Navigate to Devices-->Scripts
@@ -78,11 +79,17 @@ _NOTE:_ This script does have parameters. When importing scripts into Intune, yo
 1. Select **Yes** for Run this script using the logged on credentials
 1. Select **No** for Enforce script signature check
 1. Select **No** for Run script in 64 bit PowerShell Host
+
+Intune Screenshot
+![Intune Screenshot](.images/intune_scripts_screenshot.jpg)
+
+
 1. Build an Azure Dynamic Device Group using query:
 
 ```kusto
     (device.devicePhysicalIDs -any _ -contains "[ZTDID]")
 ```
+
 
 1. Assign script to Azure Dynamic Device Group
 
