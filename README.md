@@ -2,7 +2,7 @@
 
 ## Overview
 
-I wrote this UI in PowerShell for devices to users to change the time zone on the device. This was originally intended for a user to select their timezone on first logon. I wanted the this to popup to look and feel like something from Windows Out-of-Box-Experience (OOBE).
+I wrote this UI in PowerShell for users to change the time zone on their device. This was originally intended for a user to select their time zone on first logon right after AutoPilot ESP. I wanted the this to popup to look and feel like something from Windows Out-of-Box-Experience (OOBE).
 
 Simple
 ![Alt_text](.images/original.PNG)
