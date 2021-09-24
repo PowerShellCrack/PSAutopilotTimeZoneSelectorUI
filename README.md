@@ -24,13 +24,13 @@ Windows 11 (coming soon)
 <#
     .SYNOPSIS
         Prompts user to set time zone
-    
+
     .DESCRIPTION
 		Prompts user to set time zone using windows presentation framework
         Can be used in:
             - SCCM Tasksequences (User interface allowed)
             - SCCM Software Delivery (User interface allowed)
-            - Intune Autopilot 
+            - Intune Autopilot
 
     .NOTES
         Launches in full screen using WPF
@@ -45,12 +45,12 @@ Windows 11 (coming soon)
 
     .PARAMETER BingMapsAPIKeyy
         Used to get the Windows TimeZone value of the location coordinates. get the API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
-    
+
     .PARAMETER UserDriven
         deploy to user sets either HKCU key or HKLM key
         Set to true if the deployment is for autopilot
         NOTE: Permission required for HKLM
-    
+
     .PARAMETER OnlyRunOnce
         Specify that this script will only launch the form one time.
 
@@ -91,11 +91,11 @@ Windows 11 (coming soon)
     .EXAMPLE
         PS> .\TimeZoneUI.ps1 -OnlyRunOnce $true
 
-        Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed. 
+        Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed.
 #>
 ```
 
-## Read to deploy?
+## Ready to deploy?
 
 ### For Autopilot
 
