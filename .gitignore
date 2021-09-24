@@ -1,4 +1,6 @@
-*.png
+.vs/
 .vs/*
+Samples/
+Samples/*
 MainWindow.xaml
 /SelectTimeZoneWPF/*
