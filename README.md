@@ -4,6 +4,7 @@
 
 I wrote this UI in PowerShell for users to change the time zone on their device. This was originally intended for a user to select their time zone on first logon right after AutoPilot ESP because there is not time zone selection for during Autopilot.
 
+<https://www.powershellcrack.com/2019/12/select-time-zone-using-powershell-wpf.html>
 ## The Look
 
 I wanted the this to window to look and feel like something from Windows Out-of-Box-Experience (OOBE).
