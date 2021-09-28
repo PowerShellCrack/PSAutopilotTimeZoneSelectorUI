@@ -1,13 +1,18 @@
 # Select a Time Zone
 
-## Overview
+[Overview](#overview)
+[The Look](#the-look)
+[How to Use](#how-to-use)
 
-I wrote this UI in PowerShell for users to change the time zone on their device. This was originally intended for a user to select their time zone on first logon right after AutoPilot ESP because there is not time zone selection for during Autopilot.
+## How to Use
+## <a name="overview"></a>Overview
+
+> I wrote this UI in PowerShell for users to change the time zone on their device. This was originally intended for a user to select their time zone on first logon right after AutoPilot ESP because there is not time zone selection for during Autopilot.
 
 <https://www.powershellcrack.com/2019/12/select-time-zone-using-powershell-wpf.html>
-## The Look
+## <a name="the-look"></a>The look
 
-I wanted the this to window to look and feel like something from Windows Out-of-Box-Experience (OOBE).
+> I wanted this to interface window to look and feel something from Windows Out-of-Box-Experience (OOBE), so I developed three versions of it...
 
 Simple (TimeZoneUI.ps1)
 ![Simple Selector screenshot](.images/original.PNG)
@@ -18,7 +23,8 @@ Windows 10 OOBE version (Win10_TimeZoneUI.ps1)
 Windows 11 OOBE version (Win11_TimeZoneUI.ps1)
 ![Windows 11 OOBE screenshot](.images/win11_version.png)
 
-## How to Use
+<hr>
+## <a name="how-to-use"></a>How to Use
 
 Parameter | Type| Explanation | Requirements
 -- | -- | -- | --
