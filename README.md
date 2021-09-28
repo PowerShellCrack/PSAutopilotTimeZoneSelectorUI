@@ -15,8 +15,8 @@ Simple (TimeZoneUI.ps1)
 Windows 10 OOBE version (Win10_TimeZoneUI.ps1)
 ![Windows 10 OOBE screenshot](.images/win10_version.png)
 
-Windows 11 (coming soon)
-
+Windows 11 (first edition)
+![Windows 11 OOBE screenshot](.images/win11_version.png)
 
 ## How to Use
 
