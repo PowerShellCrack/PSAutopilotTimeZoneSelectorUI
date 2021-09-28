@@ -1,8 +1,10 @@
 # Select a Time Zone
 
-[Overview](#overview)
-[The Look](#the-look)
-[How to Use](#how-to-use)
+- [Overview](#overview)
+- [The Look](#the-look)
+- [How to Use](#how-to-use)
+- [Ready to deploy?](#ready-to-deploy)
+  - [For Autopilot](#for-autopilot)
 
 ## How to Use
 ## <a name="overview"></a>Overview
@@ -56,9 +58,9 @@ Examples
 #>
 ```
 
-## Ready to deploy?
+## <a name="ready-to-deploy"></a>Ready to deploy?
 
-### For Autopilot
+### <a name="for-autopilot"></a>For Autopilot
 
 - This is only tested on a single user device. have not tested it on multiuser or Kiosk device.
 - This runs in User context but for the device
