@@ -18,58 +18,76 @@
         https://ipstack.com
         https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
 
+    .PARAMETER SyncNTP
+        String --> defaults to 'pool.ntp.org'
+        If value exist, the script will attempt to sync time with NTP.
+        If this is not desired, remove the value or call it '-SynNTP $Null'
+        NTP uses port UDP 123
+        
     .PARAMETER IpStackAPIKey
+        String --> value is Null
         Used to get geoCoordinates of the public IP. get the API key from https://ipstack.com
 
     .PARAMETER BingMapsAPIKeyy
+        String --> value is Null
         Used to get the Windows TimeZone value of the location coordinates. get the API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
 
+    .PARAMETER NoControl
+        Boolean (True or False) --> Default is False
+        Used for single deployment scenarios; This will not track status by writing registry keys.
+        WARNING: UserDriven & RunOnce options are **IGNORED**.
+
     .PARAMETER UserDriven
-        deploy to user sets either HKCU key or HKLM key
-        Set to true if the deployment is for autopilot
-        NOTE: Permission required for HKLM
+        Boolean (True or False) --> Default is True
+        Deploy to user when set to true. 
+        if _true_ sets HKCU key, if _false_, set HKLM key. 
+        Set to True if the deployment is for Autopilot.
+        When using 'Users context deployment' and UserDriven is ste to False; users will need permission to write to device registry hive
+    
+    .PARAMETER NoUI
+        Boolean (True or False) --> Default is False
+        If set to True, the UI will not show but still attempt to set the timezone. 
+        If API Keys are provided it will use the internet to determine location. 
+        If Keys are not set, then it won't change the timezone because its the same as before, but it will attempt to sync time if a NTP value is provided.
 
-    .PARAMETER OnlyRunOnce
-        Specify that this script will only launch the form one time.
+    .PARAMETER RunOnce
+        Boolean (True or False) --> Default is True
+        Specifies this script will only launch one time.
+        If RunOnce set to True and UserDriven is True, it will launch once for each user on the device.
+        If RunOnce set to True and UserDriven is False, it will only launch once for the first user to login on the device
+        If RunOnce set to False and UserDriven is True and on a reoccurring schedule, it will launch once for each user every time for each occupance (NOT RECOMMENDED)
+        If RunOnce set to False and UserDriven is False and on a reoccurring schedule, it will launch for the current user logged in each occupance (NOT RECOMMENDED)
 
-    .PARAMETER ForceTimeSelection
-        Disabled and with Bing API --> Current timezone and geo timezone will be compared; if different, form will be displayed
-        Enabled --> the selection will always show
+    .PARAMETER ForceInteraction
+        Boolean (True or False) --> Default is False
+        If set to True, no matter the other settings (including NoUI), the UI will **ALWAYS** show!
 
-    .PARAMETER AutoTimeSelection
-        Enabled with Bing API --> No prompt for user, time will update on it own
-        Enabled without Bing API --> User will be prompted at least once
-        Ignored if ForceTimeSelection is enabled
 
-    .PARAMETER UpdateTime
-        Used only with IPstack and Bing API
-        Set local time and date (NOT TIMEZONE) based on GEO location
-        Requires administrative permissions
-
-    .EXAMPLE
-        PS> .\TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
-
-        Uses IP GEO location for the pre-selection
-
-    .EXAMPLE
-        PS> .\TimeZoneUI.ps1 -ForceTimeSelection
-
-        This will always display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected
 
     .EXAMPLE
-        PS> .\TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -AutoTimeSelection -UpdateTime
+        PS> .\TimeZoneUI.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
 
-        This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
+        RESULT: Uses IP GEO location for the pre-selection
+
+    .EXAMPLE
+        PS> .\TimeZoneUI.ps1 -ForceInteraction:$true -verbose
+
+        RESULT:  This will ALWAYS display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected. Verbose output will be displayed
+
+    .EXAMPLE
+        PS> .\TimeZoneUI.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -NoUI:$true -SyncNTP "time-a-g.nist.gov"
+
+        RESULT: This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
 
     .EXAMPLE
         PS> .\TimeZoneUI.ps1 -UserDriven:$false
 
-        Writes a registry key in HKLM hive to determine run status
+        RESULT: Writes a registry key in System (HKEY_LOCAL_MACHINE) hive to determine run status
 
     .EXAMPLE
-        PS> .\TimeZoneUI.ps1 -OnlyRunOnce:$true
-
-        Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed.
+        PS> .\TimeZoneUI.ps1 -RunOnce:$true
+        
+        RESULT: This allows the screen to display one time. RECOMMENDED for Autopilot to display after ESP screen
 #>
 
 #===========================================================================
@@ -78,21 +96,23 @@
 
 [CmdletBinding()]
 param(
+
+    [string]$SyncNTP = 'pool.ntp.org',
+
     [string]$IpStackAPIKey = "",
 
     [string]$BingMapsAPIKey = "" ,
 
+    [boolean]$NoControl = $False,
+
     [boolean]$UserDriven = $true,
 
-    [boolean]$OnlyRunOnce = $true,
+    [boolean]$RunOnce = $true,
 
-    [switch]$ForceTimeSelection,
+    [boolean]$NoUI = $False,
 
-    [switch]$AutoTimeSelection,
-
-    [switch]$UpdateTime
+    [boolean]$ForceInteraction = $false
 )
-
 
 #*=============================================
 ##* Runtime Function - REQUIRED
@@ -100,75 +120,142 @@ param(
 #region FUNCTION: Check if running in WinPE
 Function Test-WinPE{
     return Test-Path -Path Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlset\Control\MiniNT
-  }
-  #endregion
+}
+#endregion
 
-  #region FUNCTION: Check if running in ISE
-  Function Test-IsISE {
-      # try...catch accounts for:
-      # Set-StrictMode -Version latest
-      try {
-          return ($null -ne $psISE);
-      }
-      catch {
-          return $false;
-      }
-  }
-  #endregion
+#region FUNCTION: Check if running in ISE
+Function Test-IsISE {
+    # try...catch accounts for:
+    # Set-StrictMode -Version latest
+    try {
+        return ($null -ne $psISE);
+    }
+    catch {
+        return $false;
+    }
+}
+#endregion
 
-  #region FUNCTION: Check if running in Visual Studio Code
-  Function Test-VSCode{
-      if($env:TERM_PROGRAM -eq 'vscode') {
-          return $true;
-      }
-      Else{
-          return $false;
-      }
-  }
-  #endregion
+#region FUNCTION: Check if running in Visual Studio Code
+Function Test-VSCode{
+    if($env:TERM_PROGRAM -eq 'vscode') {
+        return $true;
+    }
+    Else{
+        return $false;
+    }
+}
+#endregion
 
-  #region FUNCTION: Find script path for either ISE or console
-  Function Get-ScriptPath {
-      <#
-          .SYNOPSIS
-              Finds the current script path even in ISE or VSC
-          .LINK
-              Test-VSCode
-              Test-IsISE
-      #>
-      param(
-          [switch]$Parent
-      )
+#region FUNCTION: Find script path for either ISE or console
+Function Get-ScriptPath {
+    <#
+        .SYNOPSIS
+            Finds the current script path even in ISE or VSC
+        .LINK
+            Test-VSCode
+            Test-IsISE
+    #>
+    param(
+        [switch]$Parent
+    )
 
-      Begin{}
-      Process{
-          if ($PSScriptRoot -eq "")
-          {
-              if (Test-IsISE)
-              {
-                  $ScriptPath = $psISE.CurrentFile.FullPath
-              }
-              elseif(Test-VSCode){
-                  $context = $psEditor.GetEditorContext()
-                  $ScriptPath = $context.CurrentFile.Path
-              }Else{
-                  $ScriptPath = (Get-location).Path
-              }
-          }
-          else
-          {
-              $ScriptPath = $PSCommandPath
-          }
-      }
-      End{
+    Begin{}
+    Process{
+        if ($PSScriptRoot -eq "")
+        {
+            if (Test-IsISE)
+            {
+                $ScriptPath = $psISE.CurrentFile.FullPath
+            }
+            elseif(Test-VSCode){
+                $context = $psEditor.GetEditorContext()
+                $ScriptPath = $context.CurrentFile.Path
+            }Else{
+                $ScriptPath = (Get-location).Path
+            }
+        }
+        else
+        {
+            $ScriptPath = $PSCommandPath
+        }
+    }
+    End{
 
-          If($Parent){
-              Split-Path $ScriptPath -Parent
-          }Else{
-              $ScriptPath
-          }
-      }
+        If($Parent){
+            Split-Path $ScriptPath -Parent
+        }Else{
+            $ScriptPath
+        }
+    }
 
+}
+#endregion
+
+
+#region FUNCTION: Attempt to connect to Task Sequence environment
+Function Test-SMSTSENV{
+    <#
+        .SYNOPSIS
+            Tries to establish Microsoft.SMS.TSEnvironment COM Object when running in a Task Sequence
+
+        .REQUIRED
+            Allows Set Task Sequence variables to be set
+
+        .PARAMETER ReturnLogPath
+            If specified, returns the log path, otherwise returns ts environment
+    #>
+    [CmdletBinding()]
+    param(
+        [switch]$ReturnLogPath
+    )
+
+    Begin{
+        ## Get the name of this function
+        [string]${CmdletName} = $MyInvocation.MyCommand
+    }
+    Process{
+        try{
+            # Create an object to access the task sequence environment
+            $tsenv = New-Object -ComObject Microsoft.SMS.TSEnvironment
+            #grab the progress UI
+            $TSProgressUi = New-Object -ComObject Microsoft.SMS.TSProgressUI
+            Write-Verbose ("Task Sequence environment detected!")
+        }
+        catch{
+
+            Write-Verbose ("Task Sequence environment NOT detected.")
+            #set variable to null
+            $tsenv = $null
+        }
+        Finally{
+            #set global Logpath
+            if ($null -ne $tsenv)
+            {
+                # Convert all of the variables currently in the environment to PowerShell variables
+                #$tsenv.GetVariables() | ForEach-Object { Set-Variable -Name "$_" -Value "$($tsenv.Value($_))" }
+
+                # Query the environment to get an existing variable
+                # Set a variable for the task sequence log path
+
+                #Something like C:\WINDOWS\CCM\Logs\SMSTSLog
+                [string]$LogPath = $tsenv.Value("_SMSTSLogPath")
+                If($null -eq $LogPath){$LogPath = $env:Temp}
+            }
+            Else{
+                $LogPath = $env:Temp
+                $tsenv = $false
+            }
+        }
+    }
+    End{
+        If($ReturnLogPath){
+            return $LogPath
+        }
+        Else{
+            return $tsenv
+        }
+    }
   }
   #endregion
 
@@ -181,10 +268,12 @@ Function Test-WinPE{
 #Grab all times zones plus current timezones
 $Global:AllTimeZones = Get-TimeZone -ListAvailable
 $Global:CurrentTimeZone = Get-TimeZone
+
+$Global:NTPServer = $SyncNTP
 #===========================================================================
 # XAML LANGUAGE
 #===========================================================================
-$inputXML = @"
+$XAML = @"
 <Window x:Class="SelectTimeZoneWPF.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -301,28 +390,19 @@ $inputXML = @"
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid x:Name="background" HorizontalAlignment="Center" VerticalAlignment="Center" Height="600">
+    <Grid Background="#FF1D3245" HorizontalAlignment="Center" VerticalAlignment="Center" Height="600">
 
-        <TextBlock x:Name="targetTZ_label" HorizontalAlignment="Center" Text="@anchor" VerticalAlignment="Top" FontSize="48"/>
-        <ListBox x:Name="targetTZ_listBox" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#FF1D3245" Foreground="#FFE8EDF9" FontSize="18" Width="700" Height="400" Margin="0,80,0,0" ScrollViewer.VerticalScrollBarVisibility="Visible" SelectionMode="Single"/>
-        <Grid x:Name="msg" Width="700" Height="100" Margin="0,360,0,0" HorizontalAlignment="Center">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1*" />
-                <ColumnDefinition Width="1*" />
-            </Grid.ColumnDefinitions>
-            <!--
-            <TextBlock x:Name="DefaultTZMsg" Grid.Column="0" Text="If a time zone is not selected, time will be set to: " HorizontalAlignment="Right" VerticalAlignment="Bottom" FontSize="16" Foreground="#00A4EF"/>
-            <TextBlock x:Name="CurrentTZ" Grid.Column="1" Text="@anchor" HorizontalAlignment="Left" VerticalAlignment="Bottom" FontSize="16" Foreground="yellow"/>
-            -->
-        </Grid>
-        <Button x:Name="ChangeTZButton" Content="Select Time Zone" Height="65" Width="200" HorizontalAlignment="Center" VerticalAlignment="Bottom" FontSize="18" Padding="10"/>
+        <TextBlock x:Name="txtTimeZoneTitle" HorizontalAlignment="Center" Text="@anchor" VerticalAlignment="Top" FontSize="48"/>
+        <ListBox x:Name="lbxTimeZoneList" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#FF1D3245" Foreground="#FFE8EDF9" FontSize="18" Width="700" Height="400" Margin="0,80,0,0" ScrollViewer.VerticalScrollBarVisibility="Visible" SelectionMode="Single"/>
+
+        <Button x:Name="btnTZSelect" Content="Select Time Zone" Height="65" Width="200" HorizontalAlignment="Center" VerticalAlignment="Bottom" FontSize="18" Padding="10"/>
 
     </Grid>
 </Window>
 "@
 
 #replace some default attributes to support powershell
-$inputXML = $inputXML -replace 'mc:Ignorable="d"','' -replace "x:N",'N'  -replace '^<Win.*', '<Window'
+[string]$XAML = $XAML -replace 'mc:Ignorable="d"','' -replace "x:N",'N'  -replace '^<Win.*', '<Window'
 
 #=======================================================
 # LOAD ASSEMBLIES
@@ -335,7 +415,8 @@ If(Test-WinPE -or Test-IsISE){[System.Reflection.Assembly]::LoadWithPartialName(
 [System.Reflection.Assembly]::LoadWithPartialName('presentationframework') | out-null #required for WPF
 [System.Reflection.Assembly]::LoadWithPartialName('PresentationCore')      | out-null #required for WPF
 
-[xml]$XAML = $inputXML
+#convert to XML
+[xml]$XAML = $XAML
 #Read XAML
 $reader=(New-Object System.Xml.XmlNodeReader $xaml)
 try{$TZSelectUI=[Windows.Markup.XamlReader]::Load( $reader )}
@@ -358,39 +439,42 @@ Function Get-FormVariables{
 
 If($DebugPreference){Get-FormVariables}
 
-#Set registry hive for user or local machine
-If($UserDriven -eq $false){$RegHive = 'HKLM:'}Else{$RegHive = 'HKCU:'}
-$RegPath = "SOFTWARE\PowerShellCrack\TimeZoneSelector"
-# Build registry key for status and selection
-#if unable to create key, deployment or permission may need to change
-Try{
-    If(-not(Test-Path "$RegHive\$RegPath") ){
-        New-Item -Path "$RegHive\SOFTWARE" -Name "PowerShellCrack" -ErrorAction SilentlyContinue | Out-Null
-        New-Item -Path "$RegHive\SOFTWARE\PowerShellCrack" -Name "TimeZoneSelector" -ErrorAction Stop | Out-Null
+# Only set keys if not in PE AND NoControl is not enabled
+If(!(Test-WinPE) -and ($NoControl -eq $false))
+{
+    #Set registry hive for user or local machine
+    If($UserDriven -eq $false){$RegHive = 'HKLM:'}Else{$RegHive = 'HKCU:'}
+    $RegPath = "SOFTWARE\PowerShellCrack\TimeZoneSelector"
+    # Build registry key for status and selection
+    #if unable to create key, deployment or permission may need to change
+    Try{
+        If(-not(Test-Path "$RegHive\$RegPath") ){
+            New-Item -Path "$RegHive\SOFTWARE" -Name "PowerShellCrack" -ErrorAction SilentlyContinue | Out-Null
+            New-Item -Path "$RegHive\SOFTWARE\PowerShellCrack" -Name "TimeZoneSelector" -ErrorAction Stop | Out-Null
+        }
+    }
+    Catch{
+        Write-Verbose ("Unable to set registry key [{0}\{1}] with value [{2}]. {3}" -f "$RegHive\$RegPath", "TimeZoneSelector", $TargetTimeZone.id,$_.Exception.Message)
+        Exit -1
     }
 }
-Catch{
-    Throw ("Unable to configure registry key [{0}\{1}]. {3}" -f "$RegHive\$RegPath", 'TimeZoneSelected ',$TargetTimeZone.id,$_.Exception.Message)
-    Exit -1
-}
-
 #====================
 #Form Functions
 #====================
 
 
-function Start-TimeSelectorUI{
+Function Start-TimeSelectorUI{
     <#TEST VALUES
     $UIObject=$TZSelectUI
     $UpdateStatusKey="$RegHive\$RegPath"
     $UpdateStatusKey="HKLM:\SOFTWARE\PowerShellCrack\TimeZoneSelector"
     #>
+    [CmdletBinding()]
     param(
-        [CmdletBinding()]
         $UIObject,
         [string]$UpdateStatusKey
     )
-    If($UpdateStatusKey){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value "Running" -Force -ErrorAction SilentlyContinue}
+    If($PSBoundParameters.ContainsKey('UpdateStatusKey')){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value "Running" -Force -ErrorAction SilentlyContinue}
 
     Try{
         #$UIObject.ShowDialog() | Out-Null
@@ -444,7 +528,7 @@ public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
         [void][System.Windows.Forms.Application]::Run($appContext)
     }
     Catch{
-        If($UpdateStatusKey){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value 'Failed' -Force -ErrorAction SilentlyContinue}
+        If($PSBoundParameters.ContainsKey('UpdateStatusKey')){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value 'Failed' -Force -ErrorAction SilentlyContinue}
         Throw $_.Exception.Message
     }
 }
@@ -455,8 +539,8 @@ function Stop-TimeSelectorUI{
     $UpdateStatusKey="$RegHive\$RegPath"
     $UpdateStatusKey="HKLM:\SOFTWARE\PowerShellCrack\TimeZoneSelector"
     #>
+    [CmdletBinding()]
     param(
-        [CmdletBinding()]
         $UIObject,
         [string]$UpdateStatusKey,
         [string]$CustomStatus
@@ -465,21 +549,21 @@ function Stop-TimeSelectorUI{
     If($CustomStatus){$status = $CustomStatus}
     Else{$status = 'Completed'}
 
-    If($UpdateStatusKey){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value $status -Force -ErrorAction SilentlyContinue}
-
     Try{
+        If($PSBoundParameters.ContainsKey('UpdateStatusKey')){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value $status -Force -ErrorAction SilentlyContinue}
         #$UIObject.Close() | Out-Null
         $UIObject.Close()
     }
     Catch{
-        If($UpdateStatusKey){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value 'Failed' -Force -ErrorAction SilentlyContinue}
-        $_.Exception.Message
+        If($PSBoundParameters.ContainsKey('UpdateStatusKey')){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value 'Failed' -Force -ErrorAction SilentlyContinue}
+        Write-Verbose $_.Exception.Message
     }
 }
 
 
 function Set-NTPDateTime
 {
+    [CmdletBinding()]
     param(
         [string] $sNTPServer
     )
@@ -511,16 +595,22 @@ function Set-NTPDateTime
 
     [String]$NTPDateTime = $StartOfEpoch.AddMilliseconds($t4ms + $Offset).ToLocalTime()
 
-    set-date $NTPDateTime
+    Try{
+        Write-Verbose ("Synchronizing with NTP server [{0}]. Attempting to change date and time to: [{1}]..." -f $sNTPServer,$NTPDateTime)
+        Set-Date $NTPDateTime -ErrorAction Stop | Out-Null
+        Write-Verbose ("Successfully updated date and time!")
+    }
+    Catch{
+        Write-Verbose ("Unable to set date and time: {0}" -f $_.Exception.Message)
+    }
 }
 
 
-function Get-GEOTimeZone {
+Function Get-GeographicData {
+    [CmdletBinding()] #This provides the function with the -Verbose and -Debug parameters
     param(
-        [CmdletBinding()]
         [string]$IpStackAPIKey,
-        [string]$BingMapsAPIKey,
-        [boolean]$ChangeTimeDate
+        [string]$BingMapsAPIKey
     )
 
     #determine if device is intune managed
@@ -536,17 +626,18 @@ function Get-GEOTimeZone {
     #attempt connecting online if both keys exist
     If($PSBoundParameters.ContainsKey('IpStackAPIKey') -and $PSBoundParameters.ContainsKey('BingMapsAPIKey'))
     {
-        Write-Verbose "Checking GEO Coordinates by IP for timezone..."
-        Write-Verbose "IPStack API: $IpStackAPIKey"
-        Write-Verbose "Bing Maps API: $BingMapsAPIKey"
+        Write-Verbose "Checking GEO Coordinates by IP for time zone..."
+        #Write-Verbose "IPStack API: $IpStackAPIKey"
+        #Write-Verbose "Bing Maps API: $BingMapsAPIKey"
 
         #grab public IP and its geo location
         try {
             $IPStackURI = "http://api.ipstack.com/check?access_key=$($IpStackAPIKey)"
+            Write-Verbose ("Initializing Ipstack REST URI: {0}" -f $IPStackURI)
             $geoIP = Invoke-RestMethod -Uri $IPStackURI -ErrorAction Stop
         }
         Catch {
-            Write-Verbose "Error obtaining coordinates or public IP address"
+            Write-Verbose ("Error obtaining coordinates or public IP address: {0}" -f $_.Exception.Message)
         }
         Finally{
             If($IntuneManaged){
@@ -558,12 +649,15 @@ function Get-GEOTimeZone {
 
         #determine geo location's timezone
         try {
-            Write-Verbose "Detected that $($geoIP.ip) is located in $($geoIP.country_name) at $($geoIP.latitude),$($geoIP.longitude)"
+            Write-Verbose ("Discovered [{0}] is located in [{1}] at coordinates [{2},{3}]" -f $geoIP.ip,$geoIP.country_name,$geoIP.latitude,$geoIP.longitude)
             $bingURI = "https://dev.virtualearth.net/REST/v1/timezone/$($geoIP.latitude),$($geoIP.longitude)?key=$($BingMapsAPIKey)"
+            Write-Verbose ("Initializing BingMaps REST URI: {0}" -f $bingURI)
             $BingApiResponse = Invoke-RestMethod -Uri $bingURI -ErrorAction Stop
+            $GEOTimeZone = $BingApiResponse.resourceSets.resources.timeZone.windowsTimeZoneId
+            $GEODateTime = $BingApiResponse.resourceSets.resources.timeZone.ConvertedTime | Select -ExpandProperty localTime
         }
         catch {
-            Write-Verbose ("Error obtaining response from Bing Maps API. {0}" -f $_.exception.message)
+            Write-Verbose ("Error obtaining response from Bing Maps API. {0}" -f $_.Exception.Message)
         }
         Finally{
             If($IntuneManaged){
@@ -571,66 +665,56 @@ function Get-GEOTimeZone {
                 (Get-Content -Path $intuneManagementExtensionLogPath).replace($BingMapsAPIKey,'<sensitive data>') |
                         Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
             }
-            $correctTimeZone = $BingApiResponse.resourceSets.resources.timeZone.windowsTimeZoneId
-            Write-Verbose "Detected Correct time zone as '$($correctTimeZone)'"
-            If($correctTimeZone){$SelectedTimeZone = [string](Get-TimeZone -id $correctTimeZone).DisplayName}
-
-            If($ChangeTimeDate){
-                $geoTimeDate = $BingApiResponse.resourceSets.resources.timeZone.ConvertedTime | Select -ExpandProperty localTime
-                try {
-                    Write-Verbose ("Attempting to set local time to: {0}" -f (Get-Date $geoTimeDate))
-                    If($geoTimeDate)
-                    {
-                        Set-Date $geoTimeDate -ErrorAction Stop
-                    }
-                    Else{
-                        Set-NTPDateTime -sNTPServer 'pool.ntp.org'
-                    }
-                }
-                catch {
-                    Write-Verbose ("Error setting time and date from Bing Maps API: {0}" -f $_.Exception.Message)
-                }
-            }
         }
     }
-    Else
-    {
-        Write-Verbose ("Offline Time Zone detection will run...")
-    }
 
-    #confirm if time zone value exists, if not default to current time
-    If(!$SelectedTimeZone){
+    If($GEOTimeZone){
+        Write-Verbose "Discovered geographic time zone as '$($GEOTimeZone)'"
+        $SelectedTimeZone = $Global:AllTimeZones | Where id -eq $GEOTimeZone
+    }Else{
+        Write-Verbose ("No geographic time was provided, using current time zone instead...")
         $SelectedTimeZone = $Global:CurrentTimeZone
+        $GEOTimeZone = $SelectedTimeZone.Id
     }
 
-    #return selected timezone object
-    return ($Global:AllTimeZones | Where {$_.Displayname -eq $SelectedTimeZone})
+    #build GEO data object
+    $GeoData = "" | Select DateTime,Id,DisplayName,StandardName
+    $GeoData.DateTime = $GEODateTime
+    $GeoData.Id = $GEOTimeZone
+    $GeoData.DisplayName = $SelectedTimeZone.DisplayName
+    $GeoData.StandardName = $SelectedTimeZone.StandardName
+
+    #return data object
+    return $GeoData
 }
+
 
 Function Update-DeviceTimeZone{
     <#TEST VALUES
-    $SelectedInput=$ui_targetTZ_listBox.SelectedItem
+    $SelectedTZ=$ui_lbxTimeZoneList.SelectedItem
     $DefaultTimeZone=(Get-TimeZone).DisplayName
     #>
+    [CmdletBinding()]
     param(
-        [string]$SelectedInput,
-        [string]$DefaultTimeZone
+        [string]$SelectedTZ
     )
     #update time zone if different than detected
-    $SelectedTimeZoneObj = $Global:AllTimeZones | Where {$_.DisplayName -eq $SelectedInput}
-    If($SelectedInput -ne $DefaultTimeZone)
+    $SelectedTimeZoneObj = $Global:AllTimeZones | Where {$_.DisplayName -eq $SelectedTZ}
+
+    If($SelectedTZ -ne $Global:CurrentTimeZone.DisplayName)
     {
         Try{
-            Write-Verbose ("Attempting to chang Time Zone to: {0}..." -f $SelectedInput)
-            Set-TimeZone $SelectedTimeZoneObj -ErrorAction SilentlyContinue | Out-Null
-            Start-Service W32Time | Restart-Service -ErrorAction SilentlyContinue
-            Write-Verbose ("Completed Time Zone change" -f $SelectedInput)
+            Write-Verbose ("Attempting to change time zone to: {0}..." -f $SelectedTZ)
+            Set-TimeZone $SelectedTimeZoneObj -ErrorAction Stop | Out-Null
+            Start-Service W32Time | Restart-Service -ErrorAction Stop
+            Write-Verbose ("Completed Time Zone change" -f $SelectedTZ)
         }
         Catch{
             Throw $_.Exception.Message
         }
     }Else{
-        Write-Verbose ("Same Time Zone has been selected: {0}" -f $SelectedInput)
+        Write-Verbose ("The selected time zone matches current: {0}" -f $SelectedTZ)
+        Write-Verbose "Skipping time zone update"
     }
 }
 
@@ -642,36 +726,37 @@ Function Update-DeviceTimeZone{
 
 #splat Params. Check if IPstack and Bingmap values DO NOT EXIST; use default timeseletions
 If(  ([string]::IsNullOrEmpty($IpStackAPIKey)) -or ([string]::IsNullOrEmpty($BingMapsAPIKey)) ){
-    $ui_targetTZ_label.Text = $ui_targetTZ_label.Text -replace "@anchor","What time zone are you in?"
-    $params = @{
+    $ui_txtTimeZoneTitle.Text = $ui_txtTimeZoneTitle.Text -replace "@anchor","What time zone are you in?"
+    $GeoTZParams = @{
         Verbose=$VerbosePreference
     }
 }
 Else{
-    $ui_targetTZ_label.Text = $ui_targetTZ_label.Text -replace "@anchor","Is this the time zone your in?"
-    $params = @{
+    $ui_txtTimeZoneTitle.Text = $ui_txtTimeZoneTitle.Text -replace "@anchor","Is this the time zone your in?"
+    $GeoTZParams = @{
         ipStackAPIKey=$IpStackAPIKey
         bingMapsAPIKey=$BingMapsAPIKey
         Verbose=$VerbosePreference
     }
 }
 
-#if set, script will attempt to change time and sat without user intervention
-If($UpdateTime){
-    $params += @{
-        ChangeTimeDate=$true
+#determine if Selector control will update status
+If(!(Test-WinPE) -and ($NoControl -eq $false))
+{
+    $UIControlParam = @{
+        UIObject=$TZSelectUI
+        UpdateStatusKey="$RegHive\$RegPath"
     }
-}
-Else{
-    $params += @{
-        ChangeTimeDate=$false
+}Else{
+    $UIControlParam = @{
+        UIObject=$TZSelectUI
     }
 }
 
 
 
 #Get all timezones and load it to combo box
-$AllTimeZones.DisplayName | ForEach-object {$ui_targetTZ_listBox.Items.Add($_)} | Out-Null
+$Global:AllTimeZones.DisplayName | ForEach-object {$ui_lbxTimeZoneList.Items.Add($_)} | Out-Null
 
 #grab Geo Timezone
 <#TEST Timezones
@@ -681,90 +766,133 @@ $TargetGeoTzObj = (Get-TimeZone -listAvailable)[15] #<---(UTC-06:00) Central Tim
 $TargetGeoTzObj = (Get-TimeZone -listAvailable)[21] #<---(UTC-05:00) Eastern Time (US & Canada)
 $TargetGeoTzObj = (Get-TimeZone)
 #>
-$TargetGeoTzObj = Get-GEOTimeZone @params
-Write-Verbose ("Detected Time Zone is: {0}" -f $TargetGeoTzObj.id)
+$TargetGeoTzObj = Get-GeographicData @GeoTZParams
 
 #select current time zone
-$ui_targetTZ_listBox.SelectedItem = $TargetGeoTzObj.DisplayName
+Write-Verbose ("The selected  time zone is: {0}" -f $TargetGeoTzObj.DisplayName)
+$ui_lbxTimeZoneList.SelectedItem = $TargetGeoTzObj.DisplayName
 
 #scrolls list to current selected item
 #+3 below to center selected item on screen
-$ui_targetTZ_listBox.ScrollIntoView($ui_targetTZ_listBox.Items[$ui_targetTZ_listBox.SelectedIndex+3])
-
-#if autoselection is enabled, attempt setting the time zone
-If($AutoTimeSelection)
-{
-    Write-Verbose "Auto Selection parameter used"
-    Write-Verbose ("Attempting to auto set Time Zone to: {0}..." -f $TargetGeoTzObj.id)
-
-    #update the time zone
-    Update-DeviceTimeZone -SelectedInput $ui_targetTZ_listBox.SelectedItem -DefaultTimeZone ($Global:CurrentTimeZone).DisplayName
-
-    #update the time and date
-    If($UpdateTime ){Set-NTPDateTime -sNTPServer 'pool.ntp.org'}
-
-    #log changes to registry
-    Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $ui_targetTZ_listBox.SelectedItem -Force -ErrorAction SilentlyContinue
-}
-
-#compare the GEO Targeted timezone verses the current timezone
-#this is check during run time
-If($TargetGeoTzObj.id -eq ((Get-TimeZone).Id) ){
-    $TimeComparisonDiffers = $false
-}
-Else{
-    $TimeComparisonDiffers = $true
-}
+$ui_lbxTimeZoneList.ScrollIntoView($ui_lbxTimeZoneList.Items[$ui_lbxTimeZoneList.SelectedIndex+3])
 
 #when button is clicked changer time
-$ui_ChangeTZButton.Add_Click({
+$ui_btnTZSelect.Add_Click({
     #Set time zone
-    #Set-TimeZone $ui_targetTZ_listBox.SelectedItem
-    Update-DeviceTimeZone -SelectedInput $ui_targetTZ_listBox.SelectedItem -DefaultTimeZone $TargetGeoTzObj.DisplayName
+    #Set-TimeZone $ui_lbxTimeZoneList.SelectedItem
+    Update-DeviceTimeZone -SelectedTZ $ui_lbxTimeZoneList.SelectedItem
     #build registry key for time selector
-    Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $ui_targetTZ_listBox.SelectedItem -Force -ErrorAction SilentlyContinue
+    If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $ui_lbxTimeZoneList.SelectedItem -Force -ErrorAction SilentlyContinue}
+
+	#update the time and date
+    If($SyncNTP){
+        Set-NTPDateTime -sNTPServer $Global:NTPServer
+        If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name NTPTimeSynced -Value $Global:NTPServer -Force -ErrorAction SilentlyContinue}
+    }Else{
+        Write-Verbose "No NTP server specified. Skipping date and time update."
+    }
+
     #close the UI
-    Stop-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKey "$RegHive\$RegPath"
+    Stop-TimeSelectorUI @UIControlParam
 	#If(!$isISE){Stop-Process $pid}
+
 })
 
+
 #===========================================================================
-# Main - Call the form depending on scenario
+# Main - Call the form depending on logic
 #===========================================================================
+<# LOGIC for UI
+
+UI will show if:
+ - 'ForceInteraction' parameter set to True
+ - 'UI has not detected itself running before or it has failed or not completed
+
+UI will NOT show if:
+ - 'ForceInteraction' parameter set to False AND 'NoUI' parameter is set to True
+ - Time is not different from detected Geographic time (this will only work if IpStack/Bing API are included)
+ - If script detected its still running OR last status is set to 'running'
+
+UI will make changes if:
+- If UI is displayed and change is selected
+- NoUI is set to True
+
+#>
 
 # found that if script is called by Intune, the script may be running multiple times if the ESP screen process takes a while
 # Only allow the script to run once if it is already being displayed
-If($ForceTimeSelection){
+If($ForceInteraction){
     #run form all the time
-    Write-Verbose ("'ForceTimeSelection' parameter called; selector will be displayed")
-    Start-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKey "$RegHive\$RegPath"
+    Write-Verbose ("'ForceInteraction' parameter called;  UI will be displayed")
+    Start-TimeSelectorUI @UIControlParam
 }
-ElseIf((Get-ItemProperty "$RegHive\$RegPath" -Name Status -ErrorAction SilentlyContinue).Status -eq "Running"){
+#if noUI is set; attempt to set the timezone and time without UI interaction
+ElseIf($NoUI)
+{
+    Write-Verbose "'NoUI' parameter called; UI will NOT be displayed"
+
+    #update the time zone
+    Update-DeviceTimeZone -SelectedTZ $TargetGeoTzObj.DisplayName
+
+    #log changes to registry
+    If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $ui_lbxTimeZoneList.SelectedItem -Force -ErrorAction SilentlyContinue}
+
+    #update the time and date
+    If($SyncNTP){
+        Set-NTPDateTime -sNTPServer $Global:NTPServer
+        If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name NTPTimeSynced -Value $Global:NTPServer -Force -ErrorAction SilentlyContinue}
+    }Else{
+        Write-Verbose "No NTP server specified. Skipping date and time update."
+    }
+
+}
+Elseif($NoControl){
+    Write-Verbose ("'NoControl' parameter called; UI will be displayed without monitoring registry.")
+    Start-TimeSelectorUI @UIControlParam
+}
+ElseIf( Get-Process | Where {$_.MainWindowTitle -eq "Time Zone Selection"} ){
     #do nothing
-    Write-Verbose "Detected that TimeSelector UI is running. Exiting"
+    Write-Verbose "Detected that UI process is still running. UI will not be displayed."
 }
-ElseIf($TimeComparisonDiffers -eq $true){
-    #Only run if time compared differs
-    Write-Verbose ("Current time is different than Geo time scenario; selector will be displayed")
-    Start-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKey "$RegHive\$RegPath"
-}
-ElseIf($OnlyRunOnce){
+ElseIf($RunOnce){
+    $UiStatus = (Get-ItemProperty "$RegHive\$RegPath" -Name Status -ErrorAction SilentlyContinue).Status
+    switch($UiStatus){
+        #"Running" {$StatusMsg = "Script status shows 'Running'.  UI will not be displayed"; $displayUI = $false}
+        "Failed" {$StatusMsg = "Last attempt failed; UI will be displayed."; $displayUI = $true}
+        "Completed" {$StatusMsg = "Selector has already ran once. Try '-ForceInteraction:`$true' param to force the UI."; $displayUI = $false}
+        $null {$StatusMsg = "First time running script; UI will be displayed."; $displayUI = $true}
+        default {$StatusMsg = "Unknown status; UI will be displayed."; $displayUI = $true}
+    }
     #check if registry key exists to determine if form needs to be displayed\
-    If( ((Get-ItemProperty "$RegHive\$RegPath" -Name Status -ErrorAction SilentlyContinue).Status -eq "Failed") ){
-        Write-Verbose ("Last attempt failed; selector will be displayed")
-        Start-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKey "$RegHive\$RegPath"
-    }
-    ElseIf(-not((Get-ItemProperty "$RegHive\$RegPath" -Name Status -ErrorAction SilentlyContinue).Status -eq "Completed") ){
-        Write-Verbose ("Last attempt did not complete; selector will be displayed")
-        Start-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKey "$RegHive\$RegPath"
-    }
-    Else{
+    If($displayUI){
+        Write-Verbose $StatusMsg
+        Start-TimeSelectorUI @UIControlParam
+    }Else{
         #do nothing
         #Stop-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKey "$RegHive\$RegPath"-CustomStatus "Completed"
-        Write-Verbose ("Selector has already ran once. Try -ForceTimeSelection param to run again.")
+        Write-Verbose $StatusMsg
     }
 }
+ElseIf($TargetGeoTzObj.DisplayName -ne $Global:CurrentTimeZone.DisplayName){
+    #Only run if time compared differs
+    Write-Verbose ("Current time is different than Geo time scenario; UI will be displayed")
+    Start-TimeSelectorUI @UIControlParam
+}
 Else{
-    Write-Verbose ("All scenarios are false; selector will be displayed")
-    Start-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKey "$RegHive\$RegPath"
+    Write-Verbose ("All scenarios are false; UI will be displayed")
+    Start-TimeSelectorUI @UIControlParam
+}
+
+
+
+#if running in a Task sequence output the timezone to standard TS variables
+#https://docs.microsoft.com/en-us/mem/configmgr/osd/understand/task-sequence-variables#OSDTimeZone-output
+If( (Test-SMSTSENV) -and ($ui_lbxTimeZoneList.SelectedItem) )
+{
+    Write-Host ("Task Sequence detected, settings output variables: ")
+    Write-Host ("OSDMigrateTimeZone: {0}" -f $True.ToString())
+    Write-Host ("OSDTimeZone: {0}" -f $TargetGeoTzObj.StandardName)
+    #$tsenv.Value("TimeZone") = (Get-TimeZoneIndex -TimeZone $ui_lbxTimeZoneList.SelectedItem #<--- TODO Need index function created
+    $tsenv.Value("OSDMigrateTimeZone") = $true
+    $tsenv.Value("OSDTimeZone") = $TargetGeoTzObj.StandardName
 }
