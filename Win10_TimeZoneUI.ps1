@@ -23,7 +23,7 @@
         If value exist, the script will attempt to sync time with NTP.
         If this is not desired, remove the value or call it '-SynNTP $Null'
         NTP uses port UDP 123
-        
+
     .PARAMETER IpStackAPIKey
         String --> value is Null
         Used to get geoCoordinates of the public IP. get the API key from https://ipstack.com
@@ -39,15 +39,15 @@
 
     .PARAMETER UserDriven
         Boolean (True or False) --> Default is True
-        Deploy to user when set to true. 
-        if _true_ sets HKCU key, if _false_, set HKLM key. 
+        Deploy to user when set to true.
+        if _true_ sets HKCU key, if _false_, set HKLM key.
         Set to True if the deployment is for Autopilot.
         When using 'Users context deployment' and UserDriven is ste to False; users will need permission to write to device registry hive
-    
+
     .PARAMETER NoUI
         Boolean (True or False) --> Default is False
-        If set to True, the UI will not show but still attempt to set the timezone. 
-        If API Keys are provided it will use the internet to determine location. 
+        If set to True, the UI will not show but still attempt to set the timezone.
+        If API Keys are provided it will use the internet to determine location.
         If Keys are not set, then it won't change the timezone because its the same as before, but it will attempt to sync time if a NTP value is provided.
 
     .PARAMETER RunOnce
@@ -86,7 +86,7 @@
 
     .EXAMPLE
         PS> .\Win10_TimeZoneUI.ps1 -RunOnce:$true
-        
+
         RESULT: This allows the screen to display one time. RECOMMENDED for Autopilot to display after ESP screen
 #>
 

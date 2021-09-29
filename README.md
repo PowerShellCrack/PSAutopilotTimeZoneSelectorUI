@@ -43,27 +43,27 @@ ForceInteraction |  Boolean | _False_ | If set to _True_, no matter the other se
 
 Examples
 ```powershell
-    # EXAMPLE 1
-    .\TimeZoneUI.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
-    # RESULT: Uses IP GEO location for the pre-selection
 
-    # EXAMPLE 2
-    .\TimeZoneUI.ps1 -ForceInteraction:$true -verbose
-    # RESULT:  This will ALWAYS display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected. Verbose output will be displayed
+# EXAMPLE 1
+.\TimeZoneUI.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
+# RESULT: Uses IP GEO location for the pre-selection
 
-    # EXAMPLE 3
-    .\TimeZoneUI.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -NoUI:$true -SyncNTP "time-a-g.nist.gov"
-    # RESULT: This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
+# EXAMPLE 2
+.\TimeZoneUI.ps1 -ForceInteraction:$true -verbose
+# RESULT:  This will ALWAYS display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected. Verbose output will be displayed
 
-    # EXAMPLE 4
-    .\TimeZoneUI.ps1 -UserDriven:$false
-    # RESULT: Writes a registry key in System (HKEY_LOCAL_MACHINE) hive to determine run status
+# EXAMPLE 3
+.\TimeZoneUI.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -NoUI:$true -SyncNTP "time-a-g.nist.gov"
+# RESULT: This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
 
-    # EXAMPLE 5
-    .\TimeZoneUI.ps1 -RunOnce:$true
-    # RESULT: This allows the screen to display one time. RECOMMENDED for Autopilot to display after ESP screen
+# EXAMPLE 4
+.\TimeZoneUI.ps1 -UserDriven:$false
+ # RESULT: Writes a registry key in System (HKEY_LOCAL_MACHINE) hive to determine run status
 
-#>
+# EXAMPLE 5
+.\TimeZoneUI.ps1 -RunOnce:$true
+# RESULT: This allows the screen to display one time. RECOMMENDED for Autopilot to display after ESP screen
+
 ```
 
 ## <a name="ready-to-deploy"></a>Ready to deploy?
@@ -80,7 +80,7 @@ HKEY_CURRENT_USER\Software\PowerShellCrack\TimeZoneSelector
 The _NoControl_ switch disables that feature, however this could result in __undesired affects__ where the user is prompted multiple times depending on deployment schedule.
 
 ### <a name=">additional-variables"></a>Additional Variables
-There is only one additional variable that can not be set by a parameter, that's on line __260__. Edit this to a specific NTP server if you like. Also keep in mind this will only be used if the SyncTime parameter is set to true. 
+There is only one additional variable that can not be set by a parameter, that's on line __260__. Edit this to a specific NTP server if you like. Also keep in mind this will only be used if the SyncTime parameter is set to true.
 
 ```powershell
 $Global:NTPServer = 'pool.ntp.org'
