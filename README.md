@@ -43,20 +43,25 @@ ForceInteraction |  Boolean | _False_ | If set to _True_, no matter the other se
 
 Examples
 ```powershell
-#Uses IP GEO location for the pre-selection
-.\TimeZoneUI.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
+    # EXAMPLE 1
+    .\TimeZoneUI.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
+    # RESULT: Uses IP GEO location for the pre-selection
 
-#This will always display the time selection screen;
-.\TimeZoneUI.ps1 -ForceTimeSelection
+    # EXAMPLE 2
+    .\TimeZoneUI.ps1 -ForceInteraction:$true -verbose
+    # RESULT:  This will ALWAYS display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected. Verbose output will be displayed
 
-#This will set the time automatically using the IP GEO location without prompting user.
-.\TimeZoneUI.ps1 -IpStackAPIKey = "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey = "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -AutoTimeSelection -UpdateTime
+    # EXAMPLE 3
+    .\TimeZoneUI.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -NoUI:$true -SyncNTP "time-a-g.nist.gov"
+    # RESULT: This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
 
-# Writes a registry key in HKLM hive to determine run status
-.\TimeZoneUI.ps1 -UserDriven:$false
+    # EXAMPLE 4
+    .\TimeZoneUI.ps1 -UserDriven:$false
+    # RESULT: Writes a registry key in System (HKEY_LOCAL_MACHINE) hive to determine run status
 
-#Mainly for Autopilot powershell scripts; this allows the screen to display one time after ESP is completed.
-.\TimeZoneUI.ps1 -OnlyRunOnce:$true
+    # EXAMPLE 5
+    .\TimeZoneUI.ps1 -RunOnce:$true
+    # RESULT: This allows the screen to display one time. RECOMMENDED for Autopilot to display after ESP screen
 
 #>
 ```
