@@ -1,5 +1,5 @@
 ﻿
-<#
+<# 
     .SYNOPSIS
         Prompts user to set time zone
 
@@ -11,7 +11,11 @@
             - Intune Autopilot
 
     .NOTES
-        Launches in full screen using WPF
+        Author		: Dick Tracy <richard.tracy@hotmail.com>
+	    Source		: https://github.com/PowerShellCrack/AutopilotTimeZoneSelectorUI
+        Version		: 2.0.0
+        README      : Review README.md for more details and configurations
+        IMPORTANT   : By using this script or parts of it, you have read and accepted the DISCLAIMER.md and LICENSE agreement
 
     .LINK
         https://matthewjwhite.co.uk/2019/04/18/intune-automatically-set-timezone-on-new-device-build/
@@ -61,7 +65,6 @@
     .PARAMETER ForceInteraction
         Boolean (True or False) --> Default is False
         If set to True, no matter the other settings (including NoUI), the UI will **ALWAYS** show!
-
 
 
     .EXAMPLE
