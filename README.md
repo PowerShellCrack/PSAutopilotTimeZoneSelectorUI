@@ -38,7 +38,7 @@ IpStackAPIKey | String | Null | Used to get geoCoordinates of the public IP. get
 BingMapsAPIKey | String |  Null | Used to get the Windows TimeZone value of the location coordinates. get the API key from https://azuremarketplace.microsoft.com/en-us/marketplace/apps/bingmaps.mapapis
 NoControl | Boolean | _False_ | This is **ONLY** used to not track or write registry keys to the device. UserDriven & RunOnce options are **IGNORED**.|
 UserDriven | Boolean | _True_ | Deploy to user when set to true. if _true_ sets HKCU key, if _false_, set HKLM key. | Set to true if the deployment is for autopilot. _Users context_ deployment will need permission to write to HKLM
-OnlyRunOnce | Boolean |  _True_ | Specifies this script will only launch one time. If its user-driven it will launch once per user on one device. If its device driven, it will only launch once for a user on the device.
+OnlyRunOnce | Boolean |  _True_ | Specifies this script will only launch one time. If its user-driven it will launch once per user on one device. If its device driven, it will only launch once for a user on the device.| RunOnce is determined by monitoring a custom registry entry. This will not work if NoControl is set to _$True_
 NoUI | Boolean | _False_ | If set to _true_, the UI will not show but still attempt to set the timezone. If API Keys are provided it will use the internet to determine location. If Keys are not set, then it won't change the timezone because its the same as before, but it will attempt to sync time if a NTP value is provided.
 ForceInteraction |  Boolean | _False_ | If set to _True_, no matter the other settings (including _NoUI_), the UI will **ALWAYS** show!
 
