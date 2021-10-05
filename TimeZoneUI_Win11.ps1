@@ -69,11 +69,13 @@
 
 
     .EXAMPLE
+        NOTE: this example is using invalid API keys.
         PS> .\TimeZoneUI_Win11.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
 
         RESULT: Uses IP GEO location for the pre-selection
 
     .EXAMPLE
+        NOTE: this example is using invalid API keys.
         PS> .\TimeZoneUI_Win11.ps1 -ForceInteraction:$true -verbose
 
         RESULT:  This will ALWAYS display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected. Verbose output will be displayed
