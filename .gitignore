@@ -1,7 +1,10 @@
 .vs/
-.vs/*
+.vs/*.vs/
+.vscode/
+.vscode/*
 Samples/
 Samples/*
 MainWindow.xaml
 /SelectTimeZoneWPF/*
 Secrets.ps1
+*.Tests.ps1

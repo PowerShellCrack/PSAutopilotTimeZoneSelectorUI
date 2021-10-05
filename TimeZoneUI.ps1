@@ -13,7 +13,7 @@
     .NOTES
         Author		: Dick Tracy <richard.tracy@hotmail.com>
 	    Source		: https://github.com/PowerShellCrack/AutopilotTimeZoneSelectorUI
-        Version		: 2.0.4
+        Version		: 2.0.5
         README      : Review README.md for more details and configurations
         CHANGELOG   : Review CHANGELOG.md for updates and fixes
         IMPORTANT   : By using this script or parts of it, you have read and accepted the DISCLAIMER.md and LICENSE agreement
@@ -368,6 +368,9 @@ $Global:CurrentTimeZone = Get-TimeZone
 
 $Global:NTPServer = $SyncNTP
 
+#set the appropriate registry hive to use when logging
+If($UserDriven -eq $false){$RegHive = 'HKLM'}Else{$RegHive = 'HKCU'}
+
 #Return log path (either in task sequence or temp dir)
 #build log name
 [string]$FileName = $scriptName +'.log'
@@ -546,42 +549,54 @@ Function Get-FormVariables{
 
 If($DebugPreference){Get-FormVariables}
 
-# Only set keys if not in PE AND NoControl is not enabled
-If(!(Test-WinPE) -and ($NoControl -eq $false))
-{
-    #Set registry hive for user or local machine
-    If($UserDriven -eq $false){$RegHive = 'HKLM:'}Else{$RegHive = 'HKCU:'}
-    $RegPath = "SOFTWARE\PowerShellCrack\TimeZoneSelector"
-    # Build registry key for status and selection
-    #if unable to create key, deployment or permission may need to change
-    Try{
-        If(-not(Test-Path "$RegHive\$RegPath") ){
-            New-Item -Path "$RegHive\SOFTWARE" -Name "PowerShellCrack" -ErrorAction SilentlyContinue | Out-Null
-            New-Item -Path "$RegHive\SOFTWARE\PowerShellCrack" -Name "TimeZoneSelector" -ErrorAction Stop | Out-Null
-        }
-    }
-    Catch{
-        Write-LogEntry ("Unable to set registry key [{0}\{1}] with value [{2}]. {3}" -f "$RegHive\$RegPath", "TimeZoneSelector", $TargetTimeZone.id,$_.Exception.Message) -Severity 3 -Outhost
-        Exit $_.Exception.HResult
-    }
-}
 #====================
 #Form Functions
 #====================
 
+Function Set-StatusKey{
+    param(
+        [parameter(Mandatory=$False)]
+        [ValidateSet('HKLM','HKCU')]
+        [string]$Hive = 'HKCU',
+        [parameter(Mandatory=$True)]
+        [string]$Name,
+        [parameter(Mandatory=$True)]
+        [string]$Value
+    )
+    Begin
+    {
+        If(!(Test-Path "$($Hive):\SOFTWARE\PowerShellCrack\TimeZoneSelector") ){
+            New-Item -Path "$($Hive):\SOFTWARE" -Name "PowerShellCrack" -ErrorAction SilentlyContinue | Out-Null
+            New-Item -Path "$($Hive):\SOFTWARE\PowerShellCrack" -Name 'TimeZoneSelector' -ErrorAction SilentlyContinue | Out-Null
+        }
+    }
+    Process
+    {
+        Try{
+            Set-ItemProperty -Path "$($Hive):\SOFTWARE\PowerShellCrack\TimeZoneSelector" -Name $Name -Value $Value -Force -ErrorAction Stop | Out-Null
+        }
+        Catch{
+            Write-LogEntry ("Unable to set status key name [{0}] with value [{1}]. {2}" -f $Name,$Value,$_.Exception.Message) -Severity 3 -Outhost
+        }
+    }
+    End
+    {
+        Set-ItemProperty -Path "$($Hive):\SOFTWARE\PowerShellCrack\TimeZoneSelector" -Name "LastRan" -Value (Get-Date) -Force -ErrorAction SilentlyContinue | Out-Null
+    }
+}
 
 Function Start-TimeSelectorUI{
     <#TEST VALUES
     $UIObject=$TZSelectUI
-    $UpdateStatusKey="$RegHive\$RegPath"
-    $UpdateStatusKey="HKLM:\SOFTWARE\PowerShellCrack\TimeZoneSelector"
+    $UpdateStatusKeyHive=$RegHive
+    $UpdateStatusKeyHive="HKLM"
     #>
     [CmdletBinding()]
     param(
         $UIObject,
-        [string]$UpdateStatusKey
+        [string]$UpdateStatusKeyHive
     )
-    If($PSBoundParameters.ContainsKey('UpdateStatusKey')){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value "Running" -Force -ErrorAction SilentlyContinue}
+    If($PSBoundParameters.ContainsKey('UpdateStatusKeyHive')){Set-StatusKey -Hive $UpdateStatusKeyHive -Name Status -Value "Running"}
 
     Try{
         #$UIObject.ShowDialog() | Out-Null
@@ -635,7 +650,7 @@ public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
         [void][System.Windows.Forms.Application]::Run($appContext)
     }
     Catch{
-        If($PSBoundParameters.ContainsKey('UpdateStatusKey')){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value 'Failed' -Force -ErrorAction SilentlyContinue}
+        If($PSBoundParameters.ContainsKey('UpdateStatusKeyHive')){Set-StatusKey -Hive $UpdateStatusKeyHive -Name Status -Value 'Failed'}
         Write-LogEntry ("Unable to load Windows Presentation UI. {0}" -f $_.Exception.Message) -Severity 3 -Outhost
         Exit $_.Exception.HResult
     }
@@ -644,13 +659,13 @@ public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
 function Stop-TimeSelectorUI{
     <#TEST VALUES
     $UIObject=$TZSelectUI
-    $UpdateStatusKey="$RegHive\$RegPath"
-    $UpdateStatusKey="HKLM:\SOFTWARE\PowerShellCrack\TimeZoneSelector"
+    $UpdateStatusKeyHive="$RegHive\$RegPath"
+    $UpdateStatusKeyHive="HKLM:\SOFTWARE\PowerShellCrack\TimeZoneSelector"
     #>
     [CmdletBinding()]
     param(
         $UIObject,
-        [string]$UpdateStatusKey,
+        [string]$UpdateStatusKeyHive,
         [string]$CustomStatus
     )
 
@@ -658,12 +673,12 @@ function Stop-TimeSelectorUI{
     Else{$status = 'Completed'}
 
     Try{
-        If($PSBoundParameters.ContainsKey('UpdateStatusKey')){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value $status -Force -ErrorAction SilentlyContinue}
+        If($PSBoundParameters.ContainsKey('UpdateStatusKeyHive')){Set-StatusKey -Hive $UpdateStatusKeyHive -Name Status -Value $status}
         #$UIObject.Close() | Out-Null
         $UIObject.Close()
     }
     Catch{
-        If($PSBoundParameters.ContainsKey('UpdateStatusKey')){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value 'Failed' -Force -ErrorAction SilentlyContinue}
+        If($PSBoundParameters.ContainsKey('UpdateStatusKeyHive')){Set-StatusKey -Hive $UpdateStatusKeyHive -Name Status -Value 'Failed'}
         Write-LogEntry ("Failed to stop Windows Presentation UI properly. {0}" -f $_.Exception.Message) -Severity 2 -Outhost
         #Exit $_.Exception.HResult
     }
@@ -846,6 +861,11 @@ Function Update-DeviceTimeZone{
 # Actually make the objects work
 #===========================================================================
 
+
+# Only set keys if not in PE AND NoControl is not enabled
+If(!(Test-WinPE) -and ($NoControl -eq $false)){
+    Set-StatusKey -Hive $RegHive -Name 'Status' -Value 'Started'
+}
 #find a time zone to select
 
 #splat Params. Check if IPstack and Bingmap values DO NOT EXIST; use default timeseletions
@@ -871,7 +891,7 @@ If(!(Test-WinPE) -and ($NoControl -eq $false))
 {
     $UIControlParam = @{
         UIObject=$TZSelectUI
-        UpdateStatusKey="$RegHive\$RegPath"
+        UpdateStatusKeyHive=$RegHive
         Verbose=$VerbosePreference
         Debug=$DebugPreference
     }
@@ -910,13 +930,13 @@ $ui_btnTZSelect.Add_Click({
     #Set-TimeZone $ui_lbxTimeZoneList.SelectedItem
     Update-DeviceTimeZone -SelectedTZ $ui_lbxTimeZoneList.SelectedItem
     #build registry key for time selector
-    If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $ui_lbxTimeZoneList.SelectedItem -Force -ErrorAction SilentlyContinue}
+    If($null -ne $UIControlParam.UpdateStatusKeyHive){Set-StatusKey -Hive $RegHive -Name TimeZoneSelected -Value $ui_lbxTimeZoneList.SelectedItem}
 
 	#update the time and date
     If($SyncNTP)
     {
         Set-NTPDateTime -sNTPServer $Global:NTPServer -Verbose:$VerbosePreference
-        If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name NTPTimeSynced -Value $Global:NTPServer -Force -ErrorAction SilentlyContinue}
+        If($null -ne $UIControlParam.UpdateStatusKeyHive){Set-StatusKey -Hive $RegHive -Name NTPTimeSynced -Value $Global:NTPServer}
     }
     Else{
         Write-LogEntry ("No NTP server specified. Skipping date and time update.") -Severity 4 -Outhost
@@ -963,12 +983,12 @@ ElseIf($NoUI)
     Update-DeviceTimeZone -SelectedTZ $TargetGeoTzObj.DisplayName
 
     #log changes to registry
-    If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $ui_lbxTimeZoneList.SelectedItem -Force -ErrorAction SilentlyContinue}
+    If($null -ne $UIControlParam.UpdateStatusKeyHive){Set-StatusKey -Hive $RegHive -Name TimeZoneSelected -Value $ui_lbxTimeZoneList.SelectedItem}
 
     #update the time and date
     If($SyncNTP){
         Set-NTPDateTime -sNTPServer $Global:NTPServer -Verbose:$VerbosePreference
-        If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name NTPTimeSynced -Value $Global:NTPServer -Force -ErrorAction SilentlyContinue}
+        If($null -ne $UIControlParam.UpdateStatusKeyHive){Set-StatusKey -Hive $RegHive -Name NTPTimeSynced -Value $Global:NTPServer}
     }Else{
         Write-LogEntry ("No NTP server specified. Skipping date and time update.") -Severity 4 -Outhost
     }
@@ -997,7 +1017,7 @@ ElseIf($RunOnce){
         Start-TimeSelectorUI @UIControlParam
     }Else{
         #do nothing
-        #Stop-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKey "$RegHive\$RegPath"-CustomStatus "Completed"
+        #Stop-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKeyHive $RegHive -CustomStatus "Completed"
         Write-LogEntry $StatusMsg -Severity 4 -Outhost
     }
 }
