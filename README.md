@@ -29,7 +29,7 @@ Windows 11 OOBE version (TimeZoneUI_Win11.ps1)
 ![Windows 11 OOBE screenshot](.images/win11_version.png)
 
 ## <a name="how-to-use"></a>How to Use
-For all parameters that are true/false I decided to make them boolean (instead of switches) so they can be hardcoded at the parameter level without calling them. this is ideal when using Intune PowerShell because you cannot call parameters.
+For all parameters that are true/false I decided to make them boolean (instead of switches) so they can be hardcoded at the parameter level without calling them. this is ideal when deploying the script from Intune because you cannot call parameters.
 
 Parameter | Type| Default value | Explanation | Requirements
 -- | -- | -- | -- | --
