@@ -7,6 +7,7 @@
   - [Device Footprint](#device-footprint)
   - [For TaskSequence](#for-tasksequence)
   - [For Autopilot](#for-autopilot)
+- [Log File](#logfile)
 <hr>
 
 ## <a name="overview"></a>Overview
@@ -21,10 +22,10 @@
 Simple (TimeZoneUI.ps1)
 ![Simple Selector screenshot](.images/original.PNG)
 
-Windows 10 OOBE version (Win10_TimeZoneUI.ps1)
+Windows 10 OOBE version (TimeZoneUI_Win10.ps1)
 ![Windows 10 OOBE screenshot](.images/win10_version.png)
 
-Windows 11 OOBE version (Win11_TimeZoneUI.ps1)
+Windows 11 OOBE version (TimeZoneUI_Win11.ps1)
 ![Windows 11 OOBE screenshot](.images/win11_version.png)
 
 ## <a name="how-to-use"></a>How to Use
@@ -144,6 +145,16 @@ Intune Screenshot
 
 1. Assign script to Azure Dynamic Device Group
 
+## <a name="logfile"></a>Log File
+
+The script does output a log file; the location is depending on what environment the script is running in:
+
+- During Tasksequence (In WINPE before Format disk) --> **X:\Windows\temp\smstslog\TimeZoneUI.log**
+- During Tasksequence (In WINPE after format disk) --> **C:\\_SMSTaskSequence\Logs\smstslog\TimeZoneUI.log**
+- During Tasksequence (Windows OS & no CCM client) --> **C:\\_SMSTaskSequence\Logs\smstslog\TimeZoneUI.log**
+- During Tasksequence (Windows OS with CCM client) --> **C:\\Windows\CCM\Logs\smstslog\TimeZoneUI.log**
+- No Task sequence (eg. AutoPilot) UserDriven --> **C:\Users\\<Username\>\Appdata\Local\Temp\TimeZoneUI.log**
+- No Task sequence (eg. AutoPilot) System Driven --> **C:\Windows\Temp\TimeZoneUI.log**
 
 # DISCLAIMER
 

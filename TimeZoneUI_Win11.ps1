@@ -1,10 +1,10 @@
 ﻿
-<#
+<# 
     .SYNOPSIS
         Prompts user to set time zone
 
     .DESCRIPTION
-		Prompts user to set time zone using windows presentation framework design that looks like Windows 10 OOBE
+		Prompts user to set time zone using windows presentation framework design that looks like Windows 11 OOBE
         Can be used in:
             - SCCM Tasksequences (User interface allowed)
             - SCCM Software Delivery (User interface allowed)
@@ -67,29 +67,28 @@
         If set to True, no matter the other settings (including NoUI), the UI will **ALWAYS** show!
 
 
-
     .EXAMPLE
-        PS> .\Win10_TimeZoneUI.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
+        PS> .\TimeZoneUI_Win11.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -Verbose
 
         RESULT: Uses IP GEO location for the pre-selection
 
     .EXAMPLE
-        PS> .\Win10_TimeZoneUI.ps1 -ForceInteraction:$true -verbose
+        PS> .\TimeZoneUI_Win11.ps1 -ForceInteraction:$true -verbose
 
         RESULT:  This will ALWAYS display the time selection screen; if IPStack and BingMapsAPI included the IP GEO location timezone will be preselected. Verbose output will be displayed
 
     .EXAMPLE
-        PS> .\Win10_TimeZoneUI.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -NoUI:$true -SyncNTP "time-a-g.nist.gov"
+        PS> .\TimeZoneUI_Win11.ps1 -IpStackAPIKey "4bd1443445dfhrrt9dvefr45341" -BingMapsAPIKey "Bh53uNUOwg71czosmd73hKfdHf465ddfhrtpiohvknlkewufjf4-d" -NoUI:$true -SyncNTP "time-a-g.nist.gov"
 
         RESULT: This will set the time automatically using the IP GEO location without prompting user. If API not provided, timezone or time will not change the current settings
 
     .EXAMPLE
-        PS> .\Win10_TimeZoneUI.ps1 -UserDriven:$false
+        PS> .\TimeZoneUI_Win11.ps1 -UserDriven:$false
 
         RESULT: Writes a registry key in System (HKEY_LOCAL_MACHINE) hive to determine run status
 
     .EXAMPLE
-        PS> .\Win10_TimeZoneUI.ps1 -RunOnce:$true
+        PS> .\TimeZoneUI_Win11.ps1 -RunOnce:$true
 
         RESULT: This allows the screen to display one time. RECOMMENDED for Autopilot to display after ESP screen
 #>
@@ -261,45 +260,146 @@ Function Test-SMSTSENV{
             return $tsenv
         }
     }
-  }
-  #endregion
+}
+#endregion
 
+Function Write-LogEntry{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true,Position=0,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Message,
+
+        [Parameter(Mandatory=$false,Position=2)]
+		[string]$Source,
+
+        [parameter(Mandatory=$false)]
+        [ValidateSet(0,1,2,3,4,5)]
+        [int16]$Severity = 1,
+
+        [parameter(Mandatory=$false, HelpMessage="Name of the log file that the entry will written to.")]
+        [ValidateNotNullOrEmpty()]
+        [string]$OutputLogFile = $Global:LogFilePath,
+
+        [parameter(Mandatory=$false)]
+        [switch]$Outhost
+    )
+    ## Get the name of this function
+    #[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
+    if (-not $PSBoundParameters.ContainsKey('Verbose')) {
+        $VerbosePreference = $PSCmdlet.SessionState.PSVariable.GetValue('VerbosePreference')
+    }
+
+    if (-not $PSBoundParameters.ContainsKey('Debug')) {
+        $DebugPreference = $PSCmdlet.SessionState.PSVariable.GetValue('DebugPreference')
+    }
+    #get BIAS time
+    [string]$LogTime = (Get-Date -Format 'HH:mm:ss.fff').ToString()
+	[string]$LogDate = (Get-Date -Format 'MM-dd-yyyy').ToString()
+	[int32]$script:LogTimeZoneBias = [timezone]::CurrentTimeZone.GetUtcOffset([datetime]::Now).TotalMinutes
+	[string]$LogTimePlusBias = $LogTime + $script:LogTimeZoneBias
+
+    #  Get the file name of the source script
+    If($Source){
+        $ScriptSource = $Source
+    }
+    Else{
+        Try {
+    	    If ($script:MyInvocation.Value.ScriptName) {
+    		    [string]$ScriptSource = Split-Path -Path $script:MyInvocation.Value.ScriptName -Leaf -ErrorAction 'Stop'
+    	    }
+    	    Else {
+    		    [string]$ScriptSource = Split-Path -Path $script:MyInvocation.MyCommand.Definition -Leaf -ErrorAction 'Stop'
+    	    }
+        }
+        Catch {
+    	    $ScriptSource = ''
+        }
+    }
+
+    #if the severity is 4 or 5 make them 1; but output as verbose or debug respectfully.
+    If($Severity -eq 4){$logSeverityAs=1}Else{$logSeverityAs=$Severity}
+    If($Severity -eq 5){$logSeverityAs=1}Else{$logSeverityAs=$Severity}
+
+    #generate CMTrace log format
+    $LogFormat = "<![LOG[$Message]LOG]!>" + "<time=`"$LogTimePlusBias`" " + "date=`"$LogDate`" " + "component=`"$ScriptSource`" " + "context=`"$([Security.Principal.WindowsIdentity]::GetCurrent().Name)`" " + "type=`"$logSeverityAs`" " + "thread=`"$PID`" " + "file=`"$ScriptSource`">"
+
+    # Add value to log file
+    try {
+        Out-File -InputObject $LogFormat -Append -NoClobber -Encoding Default -FilePath $OutputLogFile -ErrorAction Stop
+    }
+    catch {
+        Write-Host ("[{0}] [{1}] :: Unable to append log entry to [{1}], error: {2}" -f $LogTimePlusBias,$ScriptSource,$OutputLogFile,$_.Exception.ErrorMessage) -ForegroundColor Red
+    }
+
+    #output the message to host
+    If($Outhost)
+    {
+        If($Source){
+            $OutputMsg = ("[{0}] [{1}] :: {2}" -f $LogTimePlusBias,$Source,$Message)
+        }
+        Else{
+            $OutputMsg = ("[{0}] [{1}] :: {2}" -f $LogTimePlusBias,$ScriptSource,$Message)
+        }
+
+        Switch($Severity){
+            0       {Write-Host $OutputMsg -ForegroundColor Green}
+            1       {Write-Host $OutputMsg -ForegroundColor Gray}
+            2       {Write-Host $OutputMsg -ForegroundColor Yellow}
+            3       {Write-Host $OutputMsg -ForegroundColor Red}
+            4       {Write-Verbose $OutputMsg}
+            5       {Write-Debug $OutputMsg}
+            default {Write-Host $OutputMsg}
+        }
+    }
+}
 ##*=============================================
 ##* VARIABLE DECLARATION
 ##*=============================================
 #region VARIABLES: Building paths & values
 [string]$scriptPath = Get-ScriptPath
+[string]$scriptName = [IO.Path]::GetFileNameWithoutExtension($scriptPath)
 
 #Grab all times zones plus current timezones
 $Global:AllTimeZones = Get-TimeZone -ListAvailable
 $Global:CurrentTimeZone = Get-TimeZone
 
 $Global:NTPServer = $SyncNTP
+
+#Return log path (either in task sequence or temp dir)
+#build log name
+[string]$FileName = $scriptName +'.log'
+#build global log fullpath
+$Global:LogFilePath = Join-Path (Test-SMSTSENV -ReturnLogPath -Verbose) -ChildPath $FileName
+Write-Host "logging to file: $LogFilePath" -ForegroundColor Cyan
 #===========================================================================
 # XAML LANGUAGE
 #===========================================================================
 $XAML = @"
-<Window x:Class="SelectTimeZoneUI.MainWindow"
+<Window x:Class="SelectTimeZoneWPF.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:SelectTimeZoneUI"
+        xmlns:local="clr-namespace:SelectTimeZoneWPF"
         mc:Ignorable="d"
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
-        Title="Time Zone Selection"
         Width="1024" Height="768"
-        Background="#1f1f1f">
+        Title="Time Zone Selection"
+        >
+    <Window.Background>
+        <ImageBrush ImageSource="https://github.com/PowerShellCrack/AutopilotTimeZoneSelectorUI/blob/master/.images/win11_oobe_wallpaper.png?raw=true"></ImageBrush>
+    </Window.Background>
     <Window.Resources>
         <ResourceDictionary>
 
             <Style TargetType="{x:Type Window}">
                 <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontWeight" Value="Light" />
-                <Setter Property="Background" Value="#1f1f1f" />
-                <Setter Property="Foreground" Value="white" />
+                <Setter Property="FontWeight" Value="Normal" />
+                <Setter Property="Background" Value="white" />
+                <Setter Property="Foreground" Value="#1f1f1f" />
             </Style>
 
             <!-- TabControl Style-->
@@ -325,18 +425,23 @@ $XAML = @"
 
                                 <Border x:Name="Border"
                             Grid.Row="1"
+                                        CornerRadius="15"
                             BorderThickness="0,3,0,0"
                             KeyboardNavigation.TabNavigation="Local"
                             KeyboardNavigation.DirectionalNavigation="Contained"
                             KeyboardNavigation.TabIndex="2">
 
                                     <Border.Background>
-                                        <SolidColorBrush Color="#4c4c4c"/>
+                                        <SolidColorBrush Color="White" Opacity="0.7"/>
                                     </Border.Background>
 
                                     <Border.BorderBrush>
-                                        <SolidColorBrush Color="#4c4c4c" />
+                                        <SolidColorBrush Color="#eef2f4" />
                                     </Border.BorderBrush>
+
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="100" Color="#FFE3E3E3" ShadowDepth="0" />
+                                    </Border.Effect>
 
                                     <ContentPresenter x:Name="PART_SelectedContentHost"
                                           Margin="0,0,0,0"
@@ -408,6 +513,7 @@ $XAML = @"
                 <Setter Property="OverridesDefaultStyle" Value="true"/>
                 <Setter Property="SnapsToDevicePixels" Value="true"/>
                 <Setter Property="Template">
+
                     <Setter.Value>
                         <ControlTemplate TargetType="{x:Type TabControl}">
                             <Grid KeyboardNavigation.TabNavigation="Local">
@@ -421,13 +527,13 @@ $XAML = @"
                                     Panel.ZIndex="1"
                                     IsItemsHost="True"
                                     KeyboardNavigation.TabIndex="1"
-                                    Background="#FF1D3245" />
+                                    Background="#eef2f4"  />
 
                                 <Border x:Name="Border"
                                     Grid.Row="0"
                                     BorderThickness="1"
                                     BorderBrush="Black"
-                                    Background="#FF1D3245">
+                                    Background="#eef2f4">
 
                                     <ContentPresenter x:Name="PART_SelectedContentHost"
                                           Margin="0,0,0,0"
@@ -435,7 +541,7 @@ $XAML = @"
                                 </Border>
                                 <Border Grid.Row="1"
                                         BorderThickness="1,0,1,1"
-                                        BorderBrush="#FF1D3245">
+                                        BorderBrush="#eef2f4">
                                     <ContentPresenter Margin="4" />
                                 </Border>
                             </Grid>
@@ -454,7 +560,7 @@ $XAML = @"
                                 <Border
                                     Name="Border"
                                     Margin="10,10,10,10"
-                                    CornerRadius="0">
+                                    CornerRadius="5">
                                     <ContentPresenter x:Name="ContentSite" VerticalAlignment="Center"
                                         HorizontalAlignment="Center" ContentSource="Header"
                                         RecognizesAccessKey="True" />
@@ -466,28 +572,29 @@ $XAML = @"
                                     <Setter Property="Foreground" Value="#FF9C9C9C" />
                                     <Setter Property="FontSize" Value="16" />
                                     <Setter TargetName="Border" Property="BorderThickness" Value="1,0,1,1" />
-                                    <Setter TargetName="Border" Property="BorderBrush" Value="#FF1D3245" />
+                                    <Setter TargetName="Border" Property="BorderBrush" Value="#eef2f4" />
                                 </Trigger>
                                 <Trigger Property="IsMouseOver" Value="False">
                                     <Setter Property="Foreground" Value="#FF666666" />
                                     <Setter Property="FontSize" Value="16" />
                                     <Setter TargetName="Border" Property="BorderThickness" Value="1,0,1,1" />
-                                    <Setter TargetName="Border" Property="BorderBrush" Value="#FF1D3245" />
+                                    <Setter TargetName="Border" Property="BorderBrush" Value="#eef2f4" />
                                 </Trigger>
                                 <Trigger Property="IsSelected" Value="True">
                                     <Setter Property="Panel.ZIndex" Value="100" />
                                     <Setter Property="Foreground" Value="white" />
                                     <Setter Property="FontSize" Value="16" />
                                     <Setter TargetName="Border" Property="BorderThickness" Value="1,0,1,1" />
-                                    <Setter TargetName="Border" Property="BorderBrush" Value="#FF1D3245" />
+                                    <Setter TargetName="Border" Property="BorderBrush" Value="#eef2f4" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
             </Style>
+
             <Style TargetType="{x:Type Button}">
-                <Setter Property="Background" Value="#FF1D3245" />
+                <Setter Property="Background" Value="#0067c0" />
                 <Setter Property="Foreground" Value="#FFE8EDF9" />
                 <Setter Property="FontSize" Value="15" />
                 <Setter Property="SnapsToDevicePixels" Value="True" />
@@ -500,7 +607,7 @@ $XAML = @"
                                 BorderThickness="1"
                                 Padding="4,2"
                                 BorderBrush="#336891"
-                                CornerRadius="1"
+                                CornerRadius="8"
                                 Background="#0078d7">
                                 <ContentPresenter HorizontalAlignment="Center"
                                                 VerticalAlignment="Center"
@@ -511,24 +618,25 @@ $XAML = @"
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="border" Property="BorderBrush" Value="#FFE8EDF9" />
+                                    <Setter Property="Background" Value="#FFE8EDF9" />
                                 </Trigger>
 
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="border" Property="BorderBrush" Value="#FF1D3245" />
-                                    <Setter Property="Button.Foreground" Value="#FF1D3245" />
+                                    <Setter TargetName="border" Property="BorderBrush" Value="#003e92" />
+                                    <Setter Property="Background" Value="#003e92" />
                                     <Setter Property="Effect">
                                         <Setter.Value>
-                                            <DropShadowEffect ShadowDepth="0" Color="#FF1D3245" Opacity="1" BlurRadius="10"/>
+                                            <DropShadowEffect ShadowDepth="0" Color="#003e92" Opacity="1" BlurRadius="10"/>
                                         </Setter.Value>
                                     </Setter>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="border" Property="BorderBrush" Value="#336891" />
-                                    <Setter Property="Button.Foreground" Value="#336891" />
+                                    <Setter TargetName="border" Property="BorderBrush" Value="#dddfe1" />
+                                    <Setter Property="Background" Value="#dddfe1" />
                                 </Trigger>
                                 <Trigger Property="IsFocused" Value="False">
-                                    <Setter TargetName="border" Property="BorderBrush" Value="#336891" />
-                                    <Setter Property="Button.Background" Value="#336891" />
+                                    <Setter TargetName="border" Property="BorderBrush" Value="#dddfe1" />
+                                    <Setter Property="Background" Value="#dddfe1" />
                                 </Trigger>
 
                             </ControlTemplate.Triggers>
@@ -541,7 +649,7 @@ $XAML = @"
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListBox">
-                            <Border Name="Border" BorderThickness="1" CornerRadius="2">
+                            <Border Name="Border" BorderThickness="1">
                                 <ScrollViewer Margin="0" Focusable="false">
                                     <StackPanel Margin="2" IsItemsHost="True" />
                                 </ScrollViewer>
@@ -556,20 +664,20 @@ $XAML = @"
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListBoxItem">
-                            <Border Name="ItemBorder" Padding="8" Margin="1" Background="#004275">
+                            <Border Name="ItemBorder" Padding="8" Margin="1" Background="#eef2f4" CornerRadius="8">
                                 <ContentPresenter />
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter TargetName="ItemBorder" Property="Background" Value="#00A4EF" />
-                                    <Setter Property="Foreground" Value="#FF1D3245" />
+                                    <Setter TargetName="ItemBorder" Property="Background" Value="#003e92"/>
+                                    <Setter Property="Foreground" Value="#eef2f4" />
                                 </Trigger>
                                 <MultiTrigger>
                                     <MultiTrigger.Conditions>
                                         <Condition Property="IsMouseOver" Value="True" />
                                         <Condition Property="IsSelected" Value="False" />
                                     </MultiTrigger.Conditions>
-                                    <Setter TargetName="ItemBorder" Property="Background" Value="#00A4EF" />
+                                    <Setter TargetName="ItemBorder" Property="Background" Value="#dddfe1" />
                                 </MultiTrigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -601,7 +709,7 @@ $XAML = @"
 
                             <DockPanel x:Name="dockPanel">
                                 <ContentPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" Content="{TemplateBinding Content}" ContentStringFormat="{TemplateBinding ContentStringFormat}" ContentTemplate="{TemplateBinding ContentTemplate}" RecognizesAccessKey="True" VerticalAlignment="Center"/>
-                                <Grid Margin="5,5,0,5" Width="66" Background="#FF1D3245">
+                                <Grid Margin="5,5,0,5" Width="66" Background="#eef2f4">
 
                                     <TextBlock Text="Yes" TextWrapping="Wrap" FontWeight="Bold" FontSize="18" HorizontalAlignment="Right" Margin="0,0,3,0" Foreground="White" VerticalAlignment="Center"/>
                                     <TextBlock Text="No"  TextWrapping="Wrap" FontWeight="Bold" FontSize="18" HorizontalAlignment="Left" Margin="2,0,0,0" Foreground="White" VerticalAlignment="Center"/>
@@ -708,18 +816,22 @@ $XAML = @"
     </Window.Resources>
 
     <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition Height="0*"/>
+        </Grid.RowDefinitions>
 
-        <TabControl HorizontalAlignment="Center" VerticalAlignment="Center" Width="1024" Height="700" Margin="0,0,0,40">
+        <TabControl HorizontalAlignment="Center" VerticalAlignment="Center" Width="900" Height="650" Margin="0,0,0,40">
 
-            <TabItem Style="{DynamicResource OOBETabStyle}" Header="Time Zone" Width="167" Height="60" BorderThickness="0" Margin="0,0,-20,0">
-                <Grid Background="#004275">
-                    <TextBlock x:Name="tab3Version" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="12" FontFamily="Segoe UI Light" Width="1004" TextAlignment="right" Margin="0,0,10,0" Foreground="gray"/>
+            <TabItem Style="{DynamicResource OOBETabStyle}" Header="Time Zone" Width="167" Height="60" BorderThickness="0" Margin="357,658,-357,-658">
+                <Grid Margin="10,6,7,9">
+                    <Image x:Name="tz_world" HorizontalAlignment="Left" Height="134" VerticalAlignment="Center" Width="148" Margin="170,217,0,224" Source="https://github.com/PowerShellCrack/AutopilotTimeZoneSelectorUI/blob/master/.images/win11_tz_worldclock.png?raw=true"/>
+                    <TextBlock x:Name="tab3Version" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="12" FontFamily="Segoe UI Light" Width="883" TextAlignment="right" Foreground="gray"/>
 
-                    <TextBlock x:Name="txtTimeZoneTitle" HorizontalAlignment="Center" Text="@anchor" VerticalAlignment="Top" FontSize="48" Margin="0,36,0,0" Width="1024" TextAlignment="Center" FontFamily="Segoe UI Light"/>
-                    <TextBlock HorizontalAlignment="Center" Text="Select a time zone for this device" VerticalAlignment="Top" FontSize="16" FontFamily="Segoe UI Light" Margin="0,100,0,0" Width="1024" TextAlignment="Center"/>
+                    <TextBlock x:Name="txtTimeZoneTitle" HorizontalAlignment="Center" Text="@anchor" VerticalAlignment="Top" FontSize="24" Margin="457,34,10,0" Width="416" TextAlignment="Left" FontFamily="Segoe UI" Foreground="Black" TextWrapping="Wrap"/>
 
-                    <ListBox x:Name="lbxTimeZoneList" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#004275" Foreground="#FFE8EDF9" FontSize="18" Width="700" Height="410" Margin="162,143,162,0" ScrollViewer.VerticalScrollBarVisibility="Auto" SelectionMode="Single"/>
-                    <Button x:Name="btnTZSelect" Content="Select" Height="45" Width="180" HorizontalAlignment="Right" VerticalAlignment="Bottom" FontSize="18" Padding="10" Margin="10"/>
+                    <ListBox x:Name="lbxTimeZoneList" HorizontalAlignment="Center" VerticalAlignment="Top" Background="#eef2f4" Foreground="Black" FontSize="16" Width="415" Height="394" Margin="440,90,28,0" ScrollViewer.VerticalScrollBarVisibility="Auto" SelectionMode="Single"/>
+                    <Button x:Name="btnTZSelect" Content="Select" Height="45" Width="140" HorizontalAlignment="Right" VerticalAlignment="Bottom" FontSize="18" Padding="10" Margin="0,0,28,29"/>
 
                 </Grid>
             </TabItem>
@@ -748,7 +860,10 @@ If(Test-WinPE -or Test-IsISE){[System.Reflection.Assembly]::LoadWithPartialName(
 #Read XAML
 $reader=(New-Object System.Xml.XmlNodeReader $xaml)
 try{$TZSelectUI=[Windows.Markup.XamlReader]::Load( $reader )}
-catch{Write-Host "Unable to load Windows.Markup.XamlReader. Double-check syntax and ensure .net is installed."}
+catch{
+    Write-LogEntry ("Unable to load Windows.Markup.XamlReader. {0}" -f $_.Exception.Message) -Severity 3 -Outhost
+    Exit $_.Exception.HResult
+}
 
 #===========================================================================
 # Store Form Objects In PowerShell
@@ -782,8 +897,8 @@ If(!(Test-WinPE) -and ($NoControl -eq $false))
         }
     }
     Catch{
-        Write-Verbose ("Unable to set registry key [{0}\{1}] with value [{2}]. {3}" -f "$RegHive\$RegPath", "TimeZoneSelector", $TargetTimeZone.id,$_.Exception.Message)
-        Exit -1
+        Write-LogEntry ("Unable to set registry key [{0}\{1}] with value [{2}]. {3}" -f "$RegHive\$RegPath", "TimeZoneSelector", $TargetTimeZone.id,$_.Exception.Message) -Severity 3 -Outhost
+        Exit $_.Exception.HResult
     }
 }
 #====================
@@ -857,7 +972,8 @@ public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
     }
     Catch{
         If($PSBoundParameters.ContainsKey('UpdateStatusKey')){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value 'Failed' -Force -ErrorAction SilentlyContinue}
-        Throw $_.Exception.Message
+        Write-LogEntry ("Unable to load Windows Presentation UI. {0}" -f $_.Exception.Message) -Severity 3 -Outhost
+        Exit $_.Exception.HResult
     }
 }
 
@@ -884,7 +1000,8 @@ function Stop-TimeSelectorUI{
     }
     Catch{
         If($PSBoundParameters.ContainsKey('UpdateStatusKey')){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value 'Failed' -Force -ErrorAction SilentlyContinue}
-        Write-Verbose $_.Exception.Message
+        Write-LogEntry ("Failed to stop Windows Presentation UI properly. {0}" -f $_.Exception.Message) -Severity 2 -Outhost
+        #Exit $_.Exception.HResult
     }
 }
 
@@ -924,12 +1041,13 @@ function Set-NTPDateTime
     [String]$NTPDateTime = $StartOfEpoch.AddMilliseconds($t4ms + $Offset).ToLocalTime()
 
     Try{
-        Write-Verbose ("Synchronizing with NTP server [{0}]. Attempting to change date and time to: [{1}]..." -f $sNTPServer,$NTPDateTime)
+        Write-LogEntry ("Synchronizing with NTP server [{0}]." -f $sNTPServer) -Severity 4 -Outhost
+        Write-LogEntry ("Attempting to change date and time to: [{0}]..." -f $NTPDateTime) -Severity 4 -Outhost
         Set-Date $NTPDateTime -ErrorAction Stop | Out-Null
-        Write-Verbose ("Successfully updated date and time!")
+        Write-LogEntry ("Successfully updated date and time!") -Severity 4 -Outhost
     }
     Catch{
-        Write-Verbose ("Unable to set date and time: {0}" -f $_.Exception.Message)
+        Write-LogEntry ("Unable to set date and time: {0}" -f $_.Exception.Message) -Severity 2 -Outhost
     }
 }
 
@@ -954,21 +1072,26 @@ Function Get-GeographicData {
     #attempt connecting online if both keys exist
     If($PSBoundParameters.ContainsKey('IpStackAPIKey') -and $PSBoundParameters.ContainsKey('BingMapsAPIKey'))
     {
-        Write-Verbose "Checking GEO Coordinates by IP for time zone..."
+        Write-LogEntry "Checking GEO Coordinates by IP for time zone..." -Severity 4 -Outhost
         #Write-Verbose "IPStack API: $IpStackAPIKey"
         #Write-Verbose "Bing Maps API: $BingMapsAPIKey"
 
         #grab public IP and its geo location
         try {
             $IPStackURI = "http://api.ipstack.com/check?access_key=$($IpStackAPIKey)"
-            Write-Verbose ("Initializing Ipstack REST URI: {0}" -f $IPStackURI)
+            If($DebugPreference -eq 'Continue'){
+                Write-LogEntry ("Initializing Ipstack REST URI: {0}" -f $IPStackURI) -Severity 4 -Outhost
+            }Else{
+                Write-LogEntry ("Initializing Ipstack REST URI: {0}" -f ($IPStackURI.replace($IpStackAPIKey,'<sensitive data>') ) ) -Severity 4 -Outhost
+            }
             $geoIP = Invoke-RestMethod -Uri $IPStackURI -ErrorAction Stop
         }
         Catch {
-            Write-Verbose ("Error obtaining coordinates or public IP address: {0}" -f $_.Exception.Message)
+            Write-LogEntry ("Error obtaining coordinates or public IP address. {0}" -f $_.Exception.Message) -Severity 2 -Outhost
         }
         Finally{
             If($IntuneManaged){
+                Write-LogEntry ("Clearing sensitive data in Intune Management Extension log...") -Severity 4 -Outhost
                 # Hide the api keys from logs to prevent manipulation API's
                 (Get-Content -Path $intuneManagementExtensionLogPath).replace($IpStackAPIKey,'<sensitive data>') |
                             Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
@@ -977,18 +1100,24 @@ Function Get-GeographicData {
 
         #determine geo location's timezone
         try {
-            Write-Verbose ("Discovered [{0}] is located in [{1}] at coordinates [{2},{3}]" -f $geoIP.ip,$geoIP.country_name,$geoIP.latitude,$geoIP.longitude)
+            Write-LogEntry ("Discovered [{0}] is located in [{1}] at coordinates [{2},{3}]" -f $geoIP.ip,$geoIP.country_name,$geoIP.latitude,$geoIP.longitude) -Severity 4 -Outhost
             $bingURI = "https://dev.virtualearth.net/REST/v1/timezone/$($geoIP.latitude),$($geoIP.longitude)?key=$($BingMapsAPIKey)"
-            Write-Verbose ("Initializing BingMaps REST URI: {0}" -f $bingURI)
+            If($DebugPreference -eq 'Continue'){
+                Write-LogEntry ("Initializing BingMaps REST URI: {0}" -f $bingURI) -Severity 4 -Outhost
+            }Else{
+                Write-LogEntry ("Initializing Ipstack REST URI: {0}" -f ($bingURI.replace($BingMapsAPIKey,'<sensitive data>') ) ) -Severity 4 -Outhost
+            }
+
             $BingApiResponse = Invoke-RestMethod -Uri $bingURI -ErrorAction Stop
             $GEOTimeZone = $BingApiResponse.resourceSets.resources.timeZone.windowsTimeZoneId
             $GEODateTime = $BingApiResponse.resourceSets.resources.timeZone.ConvertedTime | Select -ExpandProperty localTime
         }
         catch {
-            Write-Verbose ("Error obtaining response from Bing Maps API. {0}" -f $_.Exception.Message)
+            Write-LogEntry ("Error obtaining response from Bing Maps API. {0}" -f $_.Exception.Message) -Severity 2 -Outhost
         }
         Finally{
             If($IntuneManaged){
+                Write-LogEntry ("Clearing sensitive data in Intune Management Extension log...") -Severity 4 -Outhost
                 # Hide the api keys from logs to prevent manipulation API's
                 (Get-Content -Path $intuneManagementExtensionLogPath).replace($BingMapsAPIKey,'<sensitive data>') |
                         Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
@@ -996,11 +1125,13 @@ Function Get-GeographicData {
         }
     }
 
-    If($GEOTimeZone){
-        Write-Verbose "Discovered geographic time zone as '$($GEOTimeZone)'"
+    If($GEOTimeZone)
+    {
+        Write-LogEntry ("Discovered geographic time zone: {0}" -f $GEOTimeZone) -Severity 4 -Outhost
         $SelectedTimeZone = $Global:AllTimeZones | Where id -eq $GEOTimeZone
-    }Else{
-        Write-Verbose ("No geographic time was provided, using current time zone instead...")
+    }Else
+    {
+        Write-LogEntry ("No geographic time was provided, using current time zone instead...") -Severity 4 -Outhost
         $SelectedTimeZone = $Global:CurrentTimeZone
         $GEOTimeZone = $SelectedTimeZone.Id
     }
@@ -1032,17 +1163,18 @@ Function Update-DeviceTimeZone{
     If($SelectedTZ -ne $Global:CurrentTimeZone.DisplayName)
     {
         Try{
-            Write-Verbose ("Attempting to change time zone to: {0}..." -f $SelectedTZ)
+            Write-LogEntry ("Attempting to change time zone to: {0}..." -f $SelectedTZ) -Severity 4 -Outhost
             Set-TimeZone $SelectedTimeZoneObj -ErrorAction Stop | Out-Null
             Start-Service W32Time | Restart-Service -ErrorAction Stop
-            Write-Verbose ("Completed Time Zone change" -f $SelectedTZ)
+            Write-LogEntry ("Completed time zone change!" -f $SelectedTZ) -Severity 4 -Outhost
         }
         Catch{
-            Throw $_.Exception.Message
+            #Throw $_.Exception.Message
+            Write-LogEntry ("Failed to set device time zone. {0}" -f $_.Exception.Message) -Severity 3 -Outhost
+            Exit $_.Exception.HResult
         }
     }Else{
-        Write-Verbose ("The selected time zone matches current: {0}" -f $SelectedTZ)
-        Write-Verbose "Skipping time zone update"
+        Write-LogEntry "No change. Skipping time zone update" -Severity 4 -Outhost
     }
 }
 
@@ -1057,6 +1189,7 @@ If(  ([string]::IsNullOrEmpty($IpStackAPIKey)) -or ([string]::IsNullOrEmpty($Bin
     $ui_txtTimeZoneTitle.Text = $ui_txtTimeZoneTitle.Text -replace "@anchor","What time zone are you in?"
     $GeoTZParams = @{
         Verbose=$VerbosePreference
+        Debug=$DebugPreference
     }
 }
 Else{
@@ -1065,6 +1198,7 @@ Else{
         ipStackAPIKey=$IpStackAPIKey
         bingMapsAPIKey=$BingMapsAPIKey
         Verbose=$VerbosePreference
+        Debug=$DebugPreference
     }
 }
 
@@ -1074,14 +1208,16 @@ If(!(Test-WinPE) -and ($NoControl -eq $false))
     $UIControlParam = @{
         UIObject=$TZSelectUI
         UpdateStatusKey="$RegHive\$RegPath"
+        Verbose=$VerbosePreference
+        Debug=$DebugPreference
     }
 }Else{
     $UIControlParam = @{
         UIObject=$TZSelectUI
+        Verbose=$VerbosePreference
+        Debug=$DebugPreference
     }
 }
-
-
 
 #Get all timezones and load it to combo box
 $Global:AllTimeZones.DisplayName | ForEach-object {$ui_lbxTimeZoneList.Items.Add($_)} | Out-Null
@@ -1097,7 +1233,7 @@ $TargetGeoTzObj = (Get-TimeZone)
 $TargetGeoTzObj = Get-GeographicData @GeoTZParams
 
 #select current time zone
-Write-Verbose ("The selected  time zone is: {0}" -f $TargetGeoTzObj.DisplayName)
+Write-LogEntry ("The selected time zone is: {0}" -f $TargetGeoTzObj.DisplayName) -Severity 4 -Outhost
 $ui_lbxTimeZoneList.SelectedItem = $TargetGeoTzObj.DisplayName
 
 #scrolls list to current selected item
@@ -1113,13 +1249,14 @@ $ui_btnTZSelect.Add_Click({
     If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $ui_lbxTimeZoneList.SelectedItem -Force -ErrorAction SilentlyContinue}
 
 	#update the time and date
-    If($SyncNTP){
-        Set-NTPDateTime -sNTPServer $Global:NTPServer
+    If($SyncNTP)
+    {
+        Set-NTPDateTime -sNTPServer $Global:NTPServer -Verbose:$VerbosePreference
         If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name NTPTimeSynced -Value $Global:NTPServer -Force -ErrorAction SilentlyContinue}
-    }Else{
-        Write-Verbose "No NTP server specified. Skipping date and time update."
     }
-
+    Else{
+        Write-LogEntry ("No NTP server specified. Skipping date and time update.") -Severity 4 -Outhost
+    }
     #close the UI
     Stop-TimeSelectorUI @UIControlParam
 	#If(!$isISE){Stop-Process $pid}
@@ -1151,14 +1288,13 @@ UI will make changes if:
 # Only allow the script to run once if it is already being displayed
 If($ForceInteraction){
     #run form all the time
-    Write-Verbose ("'ForceInteraction' parameter called;  UI will be displayed")
+    Write-LogEntry ("'ForceInteraction' parameter is enabled; UI will be displayed") -Severity 4 -Outhost
     Start-TimeSelectorUI @UIControlParam
 }
 #if noUI is set; attempt to set the timezone and time without UI interaction
 ElseIf($NoUI)
 {
-    Write-Verbose "'NoUI' parameter called; UI will NOT be displayed"
-
+    Write-LogEntry ("'NoUI' parameter is enabled; UI will NOT be displayed") -Severity 4 -Outhost
     #update the time zone
     Update-DeviceTimeZone -SelectedTZ $TargetGeoTzObj.DisplayName
 
@@ -1167,20 +1303,20 @@ ElseIf($NoUI)
 
     #update the time and date
     If($SyncNTP){
-        Set-NTPDateTime -sNTPServer $Global:NTPServer
+        Set-NTPDateTime -sNTPServer $Global:NTPServer -Verbose:$VerbosePreference
         If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name NTPTimeSynced -Value $Global:NTPServer -Force -ErrorAction SilentlyContinue}
     }Else{
-        Write-Verbose "No NTP server specified. Skipping date and time update."
+        Write-LogEntry ("No NTP server specified. Skipping date and time update.") -Severity 4 -Outhost
     }
 
 }
 Elseif($NoControl){
-    Write-Verbose ("'NoControl' parameter called; UI will be displayed without monitoring registry.")
+    Write-LogEntry ("'NoControl' is enabled; UI will be displayed without monitoring registry.") -Severity 4 -Outhost
     Start-TimeSelectorUI @UIControlParam
 }
 ElseIf( Get-Process | Where {$_.MainWindowTitle -eq "Time Zone Selection"} ){
     #do nothing
-    Write-Verbose "Detected that UI process is still running. UI will not be displayed."
+    Write-LogEntry "Detected that UI process is still running. UI will not be displayed." -Severity 4 -Outhost
 }
 ElseIf($RunOnce){
     $UiStatus = (Get-ItemProperty "$RegHive\$RegPath" -Name Status -ErrorAction SilentlyContinue).Status
@@ -1193,21 +1329,21 @@ ElseIf($RunOnce){
     }
     #check if registry key exists to determine if form needs to be displayed\
     If($displayUI){
-        Write-Verbose $StatusMsg
+        Write-LogEntry $StatusMsg -Severity 4 -Outhost
         Start-TimeSelectorUI @UIControlParam
     }Else{
         #do nothing
         #Stop-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKey "$RegHive\$RegPath"-CustomStatus "Completed"
-        Write-Verbose $StatusMsg
+        Write-LogEntry $StatusMsg -Severity 4 -Outhost
     }
 }
 ElseIf($TargetGeoTzObj.DisplayName -ne $Global:CurrentTimeZone.DisplayName){
     #Only run if time compared differs
-    Write-Verbose ("Current time is different than Geo time scenario; UI will be displayed")
+    Write-LogEntry ("Current time is different than Geo time scenario; UI will be displayed") -Severity 4 -Outhost
     Start-TimeSelectorUI @UIControlParam
 }
 Else{
-    Write-Verbose ("All scenarios are false; UI will be displayed")
+    Write-LogEntry ("All scenarios are false; UI will be displayed") -Severity 4 -Outhost
     Start-TimeSelectorUI @UIControlParam
 }
 
@@ -1217,9 +1353,9 @@ Else{
 #https://docs.microsoft.com/en-us/mem/configmgr/osd/understand/task-sequence-variables#OSDTimeZone-output
 If( (Test-SMSTSENV) -and ($ui_lbxTimeZoneList.SelectedItem) )
 {
-    Write-Host ("Task Sequence detected, settings output variables: ")
-    Write-Host ("OSDMigrateTimeZone: {0}" -f $True.ToString())
-    Write-Host ("OSDTimeZone: {0}" -f $TargetGeoTzObj.StandardName)
+    Write-LogEntry ("Task Sequence detected, settings output variables: ") -Severity 4 -Outhost
+    Write-LogEntry ("OSDMigrateTimeZone: {0}" -f $True.ToString()) -Severity 4 -Outhost
+    Write-LogEntry ("OSDTimeZone: {0}" -f $TargetGeoTzObj.StandardName) -Severity 4 -Outhost
     #$tsenv.Value("TimeZone") = (Get-TimeZoneIndex -TimeZone $ui_lbxTimeZoneList.SelectedItem #<--- TODO Need index function created
     $tsenv.Value("OSDMigrateTimeZone") = $true
     $tsenv.Value("OSDTimeZone") = $TargetGeoTzObj.StandardName

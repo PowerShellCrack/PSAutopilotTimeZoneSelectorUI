@@ -260,20 +260,118 @@ Function Test-SMSTSENV{
             return $tsenv
         }
     }
-  }
-  #endregion
+}
+#endregion
 
+Function Write-LogEntry{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true,Position=0,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Message,
+
+        [Parameter(Mandatory=$false,Position=2)]
+		[string]$Source,
+
+        [parameter(Mandatory=$false)]
+        [ValidateSet(0,1,2,3,4,5)]
+        [int16]$Severity = 1,
+
+        [parameter(Mandatory=$false, HelpMessage="Name of the log file that the entry will written to.")]
+        [ValidateNotNullOrEmpty()]
+        [string]$OutputLogFile = $Global:LogFilePath,
+
+        [parameter(Mandatory=$false)]
+        [switch]$Outhost
+    )
+    ## Get the name of this function
+    #[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
+    if (-not $PSBoundParameters.ContainsKey('Verbose')) {
+        $VerbosePreference = $PSCmdlet.SessionState.PSVariable.GetValue('VerbosePreference')
+    }
+
+    if (-not $PSBoundParameters.ContainsKey('Debug')) {
+        $DebugPreference = $PSCmdlet.SessionState.PSVariable.GetValue('DebugPreference')
+    }
+    #get BIAS time
+    [string]$LogTime = (Get-Date -Format 'HH:mm:ss.fff').ToString()
+	[string]$LogDate = (Get-Date -Format 'MM-dd-yyyy').ToString()
+	[int32]$script:LogTimeZoneBias = [timezone]::CurrentTimeZone.GetUtcOffset([datetime]::Now).TotalMinutes
+	[string]$LogTimePlusBias = $LogTime + $script:LogTimeZoneBias
+
+    #  Get the file name of the source script
+    If($Source){
+        $ScriptSource = $Source
+    }
+    Else{
+        Try {
+    	    If ($script:MyInvocation.Value.ScriptName) {
+    		    [string]$ScriptSource = Split-Path -Path $script:MyInvocation.Value.ScriptName -Leaf -ErrorAction 'Stop'
+    	    }
+    	    Else {
+    		    [string]$ScriptSource = Split-Path -Path $script:MyInvocation.MyCommand.Definition -Leaf -ErrorAction 'Stop'
+    	    }
+        }
+        Catch {
+    	    $ScriptSource = ''
+        }
+    }
+
+    #if the severity is 4 or 5 make them 1; but output as verbose or debug respectfully.
+    If($Severity -eq 4){$logSeverityAs=1}Else{$logSeverityAs=$Severity}
+    If($Severity -eq 5){$logSeverityAs=1}Else{$logSeverityAs=$Severity}
+
+    #generate CMTrace log format
+    $LogFormat = "<![LOG[$Message]LOG]!>" + "<time=`"$LogTimePlusBias`" " + "date=`"$LogDate`" " + "component=`"$ScriptSource`" " + "context=`"$([Security.Principal.WindowsIdentity]::GetCurrent().Name)`" " + "type=`"$logSeverityAs`" " + "thread=`"$PID`" " + "file=`"$ScriptSource`">"
+
+    # Add value to log file
+    try {
+        Out-File -InputObject $LogFormat -Append -NoClobber -Encoding Default -FilePath $OutputLogFile -ErrorAction Stop
+    }
+    catch {
+        Write-Host ("[{0}] [{1}] :: Unable to append log entry to [{1}], error: {2}" -f $LogTimePlusBias,$ScriptSource,$OutputLogFile,$_.Exception.ErrorMessage) -ForegroundColor Red
+    }
+
+    #output the message to host
+    If($Outhost)
+    {
+        If($Source){
+            $OutputMsg = ("[{0}] [{1}] :: {2}" -f $LogTimePlusBias,$Source,$Message)
+        }
+        Else{
+            $OutputMsg = ("[{0}] [{1}] :: {2}" -f $LogTimePlusBias,$ScriptSource,$Message)
+        }
+
+        Switch($Severity){
+            0       {Write-Host $OutputMsg -ForegroundColor Green}
+            1       {Write-Host $OutputMsg -ForegroundColor Gray}
+            2       {Write-Host $OutputMsg -ForegroundColor Yellow}
+            3       {Write-Host $OutputMsg -ForegroundColor Red}
+            4       {Write-Verbose $OutputMsg}
+            5       {Write-Debug $OutputMsg}
+            default {Write-Host $OutputMsg}
+        }
+    }
+}
 ##*=============================================
 ##* VARIABLE DECLARATION
 ##*=============================================
 #region VARIABLES: Building paths & values
 [string]$scriptPath = Get-ScriptPath
+[string]$scriptName = [IO.Path]::GetFileNameWithoutExtension($scriptPath)
 
 #Grab all times zones plus current timezones
 $Global:AllTimeZones = Get-TimeZone -ListAvailable
 $Global:CurrentTimeZone = Get-TimeZone
 
 $Global:NTPServer = $SyncNTP
+
+#Return log path (either in task sequence or temp dir)
+#build log name
+[string]$FileName = $scriptName +'.log'
+#build global log fullpath
+$Global:LogFilePath = Join-Path (Test-SMSTSENV -ReturnLogPath -Verbose) -ChildPath $FileName
+Write-Host "logging to file: $LogFilePath" -ForegroundColor Cyan
 #===========================================================================
 # XAML LANGUAGE
 #===========================================================================
@@ -424,7 +522,10 @@ If(Test-WinPE -or Test-IsISE){[System.Reflection.Assembly]::LoadWithPartialName(
 #Read XAML
 $reader=(New-Object System.Xml.XmlNodeReader $xaml)
 try{$TZSelectUI=[Windows.Markup.XamlReader]::Load( $reader )}
-catch{Write-Host "Unable to load Windows.Markup.XamlReader. Double-check syntax and ensure .net is installed."}
+catch{
+    Write-LogEntry ("Unable to load Windows.Markup.XamlReader. {0}" -f $_.Exception.Message) -Severity 3 -Outhost
+    Exit $_.Exception.HResult
+}
 
 #===========================================================================
 # Store Form Objects In PowerShell
@@ -458,8 +559,8 @@ If(!(Test-WinPE) -and ($NoControl -eq $false))
         }
     }
     Catch{
-        Write-Verbose ("Unable to set registry key [{0}\{1}] with value [{2}]. {3}" -f "$RegHive\$RegPath", "TimeZoneSelector", $TargetTimeZone.id,$_.Exception.Message)
-        Exit -1
+        Write-LogEntry ("Unable to set registry key [{0}\{1}] with value [{2}]. {3}" -f "$RegHive\$RegPath", "TimeZoneSelector", $TargetTimeZone.id,$_.Exception.Message) -Severity 3 -Outhost
+        Exit $_.Exception.HResult
     }
 }
 #====================
@@ -533,7 +634,8 @@ public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
     }
     Catch{
         If($PSBoundParameters.ContainsKey('UpdateStatusKey')){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value 'Failed' -Force -ErrorAction SilentlyContinue}
-        Throw $_.Exception.Message
+        Write-LogEntry ("Unable to load Windows Presentation UI. {0}" -f $_.Exception.Message) -Severity 3 -Outhost
+        Exit $_.Exception.HResult
     }
 }
 
@@ -560,7 +662,8 @@ function Stop-TimeSelectorUI{
     }
     Catch{
         If($PSBoundParameters.ContainsKey('UpdateStatusKey')){Set-ItemProperty -Path $UpdateStatusKey -Name Status -Value 'Failed' -Force -ErrorAction SilentlyContinue}
-        Write-Verbose $_.Exception.Message
+        Write-LogEntry ("Failed to stop Windows Presentation UI properly. {0}" -f $_.Exception.Message) -Severity 2 -Outhost
+        #Exit $_.Exception.HResult
     }
 }
 
@@ -600,12 +703,13 @@ function Set-NTPDateTime
     [String]$NTPDateTime = $StartOfEpoch.AddMilliseconds($t4ms + $Offset).ToLocalTime()
 
     Try{
-        Write-Verbose ("Synchronizing with NTP server [{0}]. Attempting to change date and time to: [{1}]..." -f $sNTPServer,$NTPDateTime)
+        Write-LogEntry ("Synchronizing with NTP server [{0}]." -f $sNTPServer) -Severity 4 -Outhost
+        Write-LogEntry ("Attempting to change date and time to: [{0}]..." -f $NTPDateTime) -Severity 4 -Outhost
         Set-Date $NTPDateTime -ErrorAction Stop | Out-Null
-        Write-Verbose ("Successfully updated date and time!")
+        Write-LogEntry ("Successfully updated date and time!") -Severity 4 -Outhost
     }
     Catch{
-        Write-Verbose ("Unable to set date and time: {0}" -f $_.Exception.Message)
+        Write-LogEntry ("Unable to set date and time: {0}" -f $_.Exception.Message) -Severity 2 -Outhost
     }
 }
 
@@ -630,21 +734,26 @@ Function Get-GeographicData {
     #attempt connecting online if both keys exist
     If($PSBoundParameters.ContainsKey('IpStackAPIKey') -and $PSBoundParameters.ContainsKey('BingMapsAPIKey'))
     {
-        Write-Verbose "Checking GEO Coordinates by IP for time zone..."
+        Write-LogEntry "Checking GEO Coordinates by IP for time zone..." -Severity 4 -Outhost
         #Write-Verbose "IPStack API: $IpStackAPIKey"
         #Write-Verbose "Bing Maps API: $BingMapsAPIKey"
 
         #grab public IP and its geo location
         try {
             $IPStackURI = "http://api.ipstack.com/check?access_key=$($IpStackAPIKey)"
-            Write-Verbose ("Initializing Ipstack REST URI: {0}" -f $IPStackURI)
+            If($DebugPreference){
+                Write-LogEntry ("Initializing Ipstack REST URI: {0}" -f $IPStackURI) -Severity 4 -Outhost
+            }Else{
+                Write-LogEntry ("Initializing Ipstack REST URI: {0}" -f ($IPStackURI.replace($IpStackAPIKey,'<sensitive data>') ) ) -Severity 4 -Outhost
+            }
             $geoIP = Invoke-RestMethod -Uri $IPStackURI -ErrorAction Stop
         }
         Catch {
-            Write-Verbose ("Error obtaining coordinates or public IP address: {0}" -f $_.Exception.Message)
+            Write-LogEntry ("Error obtaining coordinates or public IP address. {0}" -f $_.Exception.Message) -Severity 2 -Outhost
         }
         Finally{
             If($IntuneManaged){
+                Write-LogEntry ("Clearing sensitive data in Intune Management Extension log...") -Severity 4 -Outhost
                 # Hide the api keys from logs to prevent manipulation API's
                 (Get-Content -Path $intuneManagementExtensionLogPath).replace($IpStackAPIKey,'<sensitive data>') |
                             Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
@@ -653,18 +762,24 @@ Function Get-GeographicData {
 
         #determine geo location's timezone
         try {
-            Write-Verbose ("Discovered [{0}] is located in [{1}] at coordinates [{2},{3}]" -f $geoIP.ip,$geoIP.country_name,$geoIP.latitude,$geoIP.longitude)
+            Write-LogEntry ("Discovered [{0}] is located in [{1}] at coordinates [{2},{3}]" -f $geoIP.ip,$geoIP.country_name,$geoIP.latitude,$geoIP.longitude) -Severity 4 -Outhost
             $bingURI = "https://dev.virtualearth.net/REST/v1/timezone/$($geoIP.latitude),$($geoIP.longitude)?key=$($BingMapsAPIKey)"
-            Write-Verbose ("Initializing BingMaps REST URI: {0}" -f $bingURI)
+            If($DebugPreference){
+                Write-LogEntry ("Initializing BingMaps REST URI: {0}" -f $bingURI) -Severity 4 -Outhost
+            }Else{
+                Write-LogEntry ("Initializing Ipstack REST URI: {0}" -f ($bingURI.replace($BingMapsAPIKey,'<sensitive data>') ) ) -Severity 4 -Outhost
+            }
+
             $BingApiResponse = Invoke-RestMethod -Uri $bingURI -ErrorAction Stop
             $GEOTimeZone = $BingApiResponse.resourceSets.resources.timeZone.windowsTimeZoneId
             $GEODateTime = $BingApiResponse.resourceSets.resources.timeZone.ConvertedTime | Select -ExpandProperty localTime
         }
         catch {
-            Write-Verbose ("Error obtaining response from Bing Maps API. {0}" -f $_.Exception.Message)
+            Write-LogEntry ("Error obtaining response from Bing Maps API. {0}" -f $_.Exception.Message) -Severity 2 -Outhost
         }
         Finally{
             If($IntuneManaged){
+                Write-LogEntry ("Clearing sensitive data in Intune Management Extension log...") -Severity 4 -Outhost
                 # Hide the api keys from logs to prevent manipulation API's
                 (Get-Content -Path $intuneManagementExtensionLogPath).replace($BingMapsAPIKey,'<sensitive data>') |
                         Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
@@ -672,11 +787,13 @@ Function Get-GeographicData {
         }
     }
 
-    If($GEOTimeZone){
-        Write-Verbose "Discovered geographic time zone as '$($GEOTimeZone)'"
+    If($GEOTimeZone)
+    {
+        Write-LogEntry ("Discovered geographic time zone: {0}" -f $GEOTimeZone) -Severity 4 -Outhost
         $SelectedTimeZone = $Global:AllTimeZones | Where id -eq $GEOTimeZone
-    }Else{
-        Write-Verbose ("No geographic time was provided, using current time zone instead...")
+    }Else
+    {
+        Write-LogEntry ("No geographic time was provided, using current time zone instead...") -Severity 4 -Outhost
         $SelectedTimeZone = $Global:CurrentTimeZone
         $GEOTimeZone = $SelectedTimeZone.Id
     }
@@ -708,17 +825,18 @@ Function Update-DeviceTimeZone{
     If($SelectedTZ -ne $Global:CurrentTimeZone.DisplayName)
     {
         Try{
-            Write-Verbose ("Attempting to change time zone to: {0}..." -f $SelectedTZ)
+            Write-LogEntry ("Attempting to change time zone to: {0}..." -f $SelectedTZ) -Severity 4 -Outhost
             Set-TimeZone $SelectedTimeZoneObj -ErrorAction Stop | Out-Null
             Start-Service W32Time | Restart-Service -ErrorAction Stop
-            Write-Verbose ("Completed Time Zone change" -f $SelectedTZ)
+            Write-LogEntry ("Completed time zone change!" -f $SelectedTZ) -Severity 4 -Outhost
         }
         Catch{
-            Throw $_.Exception.Message
+            #Throw $_.Exception.Message
+            Write-LogEntry ("Failed to set device time zone. {0}" -f $_.Exception.Message) -Severity 3 -Outhost
+            Exit $_.Exception.HResult
         }
     }Else{
-        Write-Verbose ("The selected time zone matches current: {0}" -f $SelectedTZ)
-        Write-Verbose "Skipping time zone update"
+        Write-LogEntry "No change. Skipping time zone update" -Severity 4 -Outhost
     }
 }
 
@@ -733,6 +851,7 @@ If(  ([string]::IsNullOrEmpty($IpStackAPIKey)) -or ([string]::IsNullOrEmpty($Bin
     $ui_txtTimeZoneTitle.Text = $ui_txtTimeZoneTitle.Text -replace "@anchor","What time zone are you in?"
     $GeoTZParams = @{
         Verbose=$VerbosePreference
+        Debug=$DebugPreference
     }
 }
 Else{
@@ -741,6 +860,7 @@ Else{
         ipStackAPIKey=$IpStackAPIKey
         bingMapsAPIKey=$BingMapsAPIKey
         Verbose=$VerbosePreference
+        Debug=$DebugPreference
     }
 }
 
@@ -750,14 +870,16 @@ If(!(Test-WinPE) -and ($NoControl -eq $false))
     $UIControlParam = @{
         UIObject=$TZSelectUI
         UpdateStatusKey="$RegHive\$RegPath"
+        Verbose=$VerbosePreference
+        Debug=$DebugPreference
     }
 }Else{
     $UIControlParam = @{
         UIObject=$TZSelectUI
+        Verbose=$VerbosePreference
+        Debug=$DebugPreference
     }
 }
-
-
 
 #Get all timezones and load it to combo box
 $Global:AllTimeZones.DisplayName | ForEach-object {$ui_lbxTimeZoneList.Items.Add($_)} | Out-Null
@@ -773,7 +895,7 @@ $TargetGeoTzObj = (Get-TimeZone)
 $TargetGeoTzObj = Get-GeographicData @GeoTZParams
 
 #select current time zone
-Write-Verbose ("The selected  time zone is: {0}" -f $TargetGeoTzObj.DisplayName)
+Write-LogEntry ("The selected time zone is: {0}" -f $TargetGeoTzObj.DisplayName) -Severity 4 -Outhost
 $ui_lbxTimeZoneList.SelectedItem = $TargetGeoTzObj.DisplayName
 
 #scrolls list to current selected item
@@ -789,13 +911,14 @@ $ui_btnTZSelect.Add_Click({
     If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name TimeZoneSelected -Value $ui_lbxTimeZoneList.SelectedItem -Force -ErrorAction SilentlyContinue}
 
 	#update the time and date
-    If($SyncNTP){
-        Set-NTPDateTime -sNTPServer $Global:NTPServer
+    If($SyncNTP)
+    {
+        Set-NTPDateTime -sNTPServer $Global:NTPServer -Verbose:$VerbosePreference
         If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name NTPTimeSynced -Value $Global:NTPServer -Force -ErrorAction SilentlyContinue}
-    }Else{
-        Write-Verbose "No NTP server specified. Skipping date and time update."
     }
-
+    Else{
+        Write-LogEntry ("No NTP server specified. Skipping date and time update.") -Severity 4 -Outhost
+    }
     #close the UI
     Stop-TimeSelectorUI @UIControlParam
 	#If(!$isISE){Stop-Process $pid}
@@ -827,14 +950,13 @@ UI will make changes if:
 # Only allow the script to run once if it is already being displayed
 If($ForceInteraction){
     #run form all the time
-    Write-Verbose ("'ForceInteraction' parameter called;  UI will be displayed")
+    Write-LogEntry ("'ForceInteraction' parameter is enabled; UI will be displayed") -Severity 4 -Outhost
     Start-TimeSelectorUI @UIControlParam
 }
 #if noUI is set; attempt to set the timezone and time without UI interaction
 ElseIf($NoUI)
 {
-    Write-Verbose "'NoUI' parameter called; UI will NOT be displayed"
-
+    Write-LogEntry ("'NoUI' parameter is enabled; UI will NOT be displayed") -Severity 4 -Outhost
     #update the time zone
     Update-DeviceTimeZone -SelectedTZ $TargetGeoTzObj.DisplayName
 
@@ -843,20 +965,20 @@ ElseIf($NoUI)
 
     #update the time and date
     If($SyncNTP){
-        Set-NTPDateTime -sNTPServer $Global:NTPServer
+        Set-NTPDateTime -sNTPServer $Global:NTPServer -Verbose:$VerbosePreference
         If($null -ne $UIControlParam.UpdateStatusKey){Set-ItemProperty -Path "$RegHive\$RegPath" -Name NTPTimeSynced -Value $Global:NTPServer -Force -ErrorAction SilentlyContinue}
     }Else{
-        Write-Verbose "No NTP server specified. Skipping date and time update."
+        Write-LogEntry ("No NTP server specified. Skipping date and time update.") -Severity 4 -Outhost
     }
 
 }
 Elseif($NoControl){
-    Write-Verbose ("'NoControl' parameter called; UI will be displayed without monitoring registry.")
+    Write-LogEntry ("'NoControl' is enabled; UI will be displayed without monitoring registry.") -Severity 4 -Outhost
     Start-TimeSelectorUI @UIControlParam
 }
 ElseIf( Get-Process | Where {$_.MainWindowTitle -eq "Time Zone Selection"} ){
     #do nothing
-    Write-Verbose "Detected that UI process is still running. UI will not be displayed."
+    Write-LogEntry "Detected that UI process is still running. UI will not be displayed." -Severity 4 -Outhost
 }
 ElseIf($RunOnce){
     $UiStatus = (Get-ItemProperty "$RegHive\$RegPath" -Name Status -ErrorAction SilentlyContinue).Status
@@ -869,21 +991,21 @@ ElseIf($RunOnce){
     }
     #check if registry key exists to determine if form needs to be displayed\
     If($displayUI){
-        Write-Verbose $StatusMsg
+        Write-LogEntry $StatusMsg -Severity 4 -Outhost
         Start-TimeSelectorUI @UIControlParam
     }Else{
         #do nothing
         #Stop-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKey "$RegHive\$RegPath"-CustomStatus "Completed"
-        Write-Verbose $StatusMsg
+        Write-LogEntry $StatusMsg -Severity 4 -Outhost
     }
 }
 ElseIf($TargetGeoTzObj.DisplayName -ne $Global:CurrentTimeZone.DisplayName){
     #Only run if time compared differs
-    Write-Verbose ("Current time is different than Geo time scenario; UI will be displayed")
+    Write-LogEntry ("Current time is different than Geo time scenario; UI will be displayed") -Severity 4 -Outhost
     Start-TimeSelectorUI @UIControlParam
 }
 Else{
-    Write-Verbose ("All scenarios are false; UI will be displayed")
+    Write-LogEntry ("All scenarios are false; UI will be displayed") -Severity 4 -Outhost
     Start-TimeSelectorUI @UIControlParam
 }
 
@@ -893,9 +1015,9 @@ Else{
 #https://docs.microsoft.com/en-us/mem/configmgr/osd/understand/task-sequence-variables#OSDTimeZone-output
 If( (Test-SMSTSENV) -and ($ui_lbxTimeZoneList.SelectedItem) )
 {
-    Write-Host ("Task Sequence detected, settings output variables: ")
-    Write-Host ("OSDMigrateTimeZone: {0}" -f $True.ToString())
-    Write-Host ("OSDTimeZone: {0}" -f $TargetGeoTzObj.StandardName)
+    Write-LogEntry ("Task Sequence detected, settings output variables: ") -Severity 4 -Outhost
+    Write-LogEntry ("OSDMigrateTimeZone: {0}" -f $True.ToString()) -Severity 4 -Outhost
+    Write-LogEntry ("OSDTimeZone: {0}" -f $TargetGeoTzObj.StandardName) -Severity 4 -Outhost
     #$tsenv.Value("TimeZone") = (Get-TimeZoneIndex -TimeZone $ui_lbxTimeZoneList.SelectedItem #<--- TODO Need index function created
     $tsenv.Value("OSDMigrateTimeZone") = $true
     $tsenv.Value("OSDTimeZone") = $TargetGeoTzObj.StandardName

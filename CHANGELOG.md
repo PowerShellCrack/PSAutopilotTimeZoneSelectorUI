@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.0.4 - Oct 04, 2021
+
+- Added logging and SMSTS logging; Output to temp
+- Fixed logging sensitive data for api keys; debugging does output keys
+- Fixed debugging and verbose logging when calling functions
+- renamed UI for Win10 and Win11; reversed names to make it align with original
 ## 2.0.0 - Sept 28, 2021
 
 - Revamped UI logic to support switches to boolean; allows Intune script to run without requiring parameters
