@@ -821,7 +821,7 @@ Function Get-GeographicData {
     $GeoData.Id = $GEOTimeZone
     $GeoData.DisplayName = $SelectedTimeZone.DisplayName
     $GeoData.StandardName = $SelectedTimeZone.StandardName
-
+    
     #return data object
     return $GeoData
 }

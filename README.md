@@ -73,11 +73,22 @@ This is a script that can easily be deployed in many different ways. It can be d
 ### <a name="device-footprint"></a>Device Footprint
 Keep in mind that by running this script, be default it will write a registry key to the user hive stating its last run status. This is to ensure the script is not ran a second time unless ForceRuntTime is specified
 
-The key is located here:
+The key paths are located here:
 
 ```cmd
-HKEY_CURRENT_USER\Software\PowerShellCrack\TimeZoneSelector
+HKEY_CURRENT_USER\Software\PowerShellCrack\TimeZoneSelector <-- User Driven
+HKEY_LOCAL_MACHINE\Software\PowerShellCrack\TimeZoneSelector <-- System Driven
 ```
+
+The keys that are written are:
+
+Keys | Type | Explanation | Notes
+--|--|--|--
+LastRun | REG_SZ |This is in date time format and is updated through each stage of the script.
+Status | REG_SZ |The last known status of the script. It can be either: Failed, Running, Completed. | If UI crashes at any point it will be at _Running_ State
+SyncdToNTP | REG_SZ |The NTP server the script used. Default is _pool.ntp.org_. | Set the param SyncNTP to a valid NTP URL value
+TimeZoneSelected | REG_SZ |The selection made in the UI. | If no UI is shown the key will not be set.
+
 The _NoControl_ switch disables that feature, however this could result in __undesired affects__ where the user is prompted multiple times depending on deployment schedule.
 
 ### <a name=">additional-variables"></a>Additional Variables
