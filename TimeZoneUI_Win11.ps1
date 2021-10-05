@@ -1334,15 +1334,16 @@ ElseIf( Get-Process | Where {$_.MainWindowTitle -eq "Time Zone Selection"} ){
     Write-LogEntry "Detected that UI process is still running. UI will not be displayed." -Severity 4 -Outhost
 }
 ElseIf($RunOnce){
-    $UiStatus = (Get-ItemProperty "$RegHive\$RegPath" -Name Status -ErrorAction SilentlyContinue).Status
+    $UiStatus = Get-ItemPropertyValue "$($RegHive):\Software\PowerShellCrack\TimeZoneSelector" -Name Status -ErrorAction SilentlyContinue
     switch($UiStatus){
-        #"Running" {$StatusMsg = "Script status shows 'Running'.  UI will not be displayed"; $displayUI = $false}
-        "Failed" {$StatusMsg = "Last attempt failed; UI will be displayed."; $displayUI = $true}
-        "Completed" {$StatusMsg = "Selector has already ran once. Try '-ForceInteraction:`$true' param to force the UI."; $displayUI = $false}
+        'Running' {$StatusMsg = "Script must have crashed because process detection was not found and status is running. UI will be displayed"; $displayUI = $true}
+        'Failed' {$StatusMsg = "Last attempt failed; UI will be displayed."; $displayUI = $true}
+        'Completed' {$StatusMsg = "Selector has already ran once. Try '-ForceInteraction:`$true' param to force the UI."; $displayUI = $false}
         $null {$StatusMsg = "First time running script; UI will be displayed."; $displayUI = $true}
         default {$StatusMsg = "Unknown status; UI will be displayed."; $displayUI = $true}
     }
-    #check if registry key exists to determine if form needs to be displayed\
+
+    #check if registry key exists to determine if form needs to be displayed
     If($displayUI){
         Write-LogEntry $StatusMsg -Severity 4 -Outhost
         Start-TimeSelectorUI @UIControlParam
