@@ -1267,7 +1267,7 @@ $ui_btnTZSelect.Add_Click({
     If($SyncNTP)
     {
         Set-NTPDateTime -sNTPServer $Global:NTPServer -Verbose:$VerbosePreference
-        If($null -ne $UIControlParam.UpdateStatusKeyHive){Set-StatusKey -Hive $RegHive -Name NTPTimeSynced -Value $Global:NTPServer}
+        If($null -ne $UIControlParam.UpdateStatusKeyHive){Set-StatusKey -Hive $RegHive -Name SyncedToNTP -Value $Global:NTPServer}
     }
     Else{
         Write-LogEntry ("No NTP server specified. Skipping date and time update.") -Severity 4 -Outhost
@@ -1319,7 +1319,7 @@ ElseIf($NoUI)
     #update the time and date
     If($SyncNTP){
         Set-NTPDateTime -sNTPServer $Global:NTPServer -Verbose:$VerbosePreference
-        If($null -ne $UIControlParam.UpdateStatusKeyHive){Set-StatusKey -Hive $RegHive -Name NTPTimeSynced -Value $Global:NTPServer}
+        If($null -ne $UIControlParam.UpdateStatusKeyHive){Set-StatusKey -Hive $RegHive -Name SyncedToNTP -Value $Global:NTPServer}
     }Else{
         Write-LogEntry ("No NTP server specified. Skipping date and time update.") -Severity 4 -Outhost
     }
