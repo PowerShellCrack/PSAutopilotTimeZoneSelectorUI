@@ -858,16 +858,8 @@ Function Update-DeviceTimeZone{
 }
 
 #===========================================================================
-# Actually make the objects work
+# Actually make the UI work
 #===========================================================================
-
-
-# Only set keys if not in PE AND NoControl is not enabled
-If(!(Test-WinPE) -and ($NoControl -eq $false)){
-    Set-StatusKey -Hive $RegHive -Name 'Status' -Value 'Started'
-}
-#find a time zone to select
-
 #splat Params. Check if IPstack and Bingmap values DO NOT EXIST; use default timeseletions
 If(  ([string]::IsNullOrEmpty($IpStackAPIKey)) -or ([string]::IsNullOrEmpty($BingMapsAPIKey)) ){
     $ui_txtTimeZoneTitle.Text = $ui_txtTimeZoneTitle.Text -replace "@anchor","What time zone are you in?"
@@ -1003,14 +995,15 @@ ElseIf( Get-Process | Where {$_.MainWindowTitle -eq "Time Zone Selection"} ){
     Write-LogEntry "Detected that UI process is still running. UI will not be displayed." -Severity 4 -Outhost
 }
 ElseIf($RunOnce){
-    $UiStatus = (Get-ItemProperty "$RegHive\$RegPath" -Name Status -ErrorAction SilentlyContinue).Status
+    $UiStatus = Get-ItemPropertyValue "$($RegHive):\Software\PowerShellCrack\TimeZoneSelector" -Name Status -ErrorAction SilentlyContinue
     switch($UiStatus){
-        #"Running" {$StatusMsg = "Script status shows 'Running'.  UI will not be displayed"; $displayUI = $false}
-        "Failed" {$StatusMsg = "Last attempt failed; UI will be displayed."; $displayUI = $true}
-        "Completed" {$StatusMsg = "Selector has already ran once. Try '-ForceInteraction:`$true' param to force the UI."; $displayUI = $false}
+        'Running' {$StatusMsg = "Script status shows 'Running' or crashed. UI will not be displayed"; $displayUI = $false}
+        'Failed' {$StatusMsg = "Last attempt failed; UI will be displayed."; $displayUI = $true}
+        'Completed' {$StatusMsg = "Selector has already ran once. Try '-ForceInteraction:`$true' param to force the UI."; $displayUI = $false}
         $null {$StatusMsg = "First time running script; UI will be displayed."; $displayUI = $true}
         default {$StatusMsg = "Unknown status; UI will be displayed."; $displayUI = $true}
     }
+
     #check if registry key exists to determine if form needs to be displayed\
     If($displayUI){
         Write-LogEntry $StatusMsg -Severity 4 -Outhost

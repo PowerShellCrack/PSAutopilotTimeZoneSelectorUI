@@ -1183,16 +1183,8 @@ Function Update-DeviceTimeZone{
 }
 
 #===========================================================================
-# Actually make the objects work
+# Actually make the UI work
 #===========================================================================
-
-
-# Only set keys if not in PE AND NoControl is not enabled
-If(!(Test-WinPE) -and ($NoControl -eq $false)){
-    Set-StatusKey -Hive $RegHive -Name 'Status' -Value 'Started'
-}
-#find a time zone to select
-
 #splat Params. Check if IPstack and Bingmap values DO NOT EXIST; use default timeseletions
 If(  ([string]::IsNullOrEmpty($IpStackAPIKey)) -or ([string]::IsNullOrEmpty($BingMapsAPIKey)) ){
     $ui_txtTimeZoneTitle.Text = $ui_txtTimeZoneTitle.Text -replace "@anchor","What time zone are you in?"
