@@ -13,7 +13,7 @@
     .NOTES
         Author		: Dick Tracy <richard.tracy@hotmail.com>
 	    Source		: https://github.com/PowerShellCrack/AutopilotTimeZoneSelectorUI
-        Version		: 2.0.5
+        Version		: 2.0.6
         README      : Review README.md for more details and configurations
         CHANGELOG   : Review CHANGELOG.md for updates and fixes
         IMPORTANT   : By using this script or parts of it, you have read and accepted the DISCLAIMER.md and LICENSE agreement
@@ -270,16 +270,16 @@ Function Test-SMSTSENV{
 Function Write-LogEntry{
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true,Position=0,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+        [Parameter(Mandatory=$true,Position=0,ValueFromPipeline=$true)]
         [ValidateNotNullOrEmpty()]
         [string]$Message,
 
-        [Parameter(Mandatory=$false,Position=2)]
-		[string]$Source,
+        [Parameter(Mandatory=$false,Position=1)]
+		[string]$Source = '',
 
-        [parameter(Mandatory=$false)]
-        [ValidateSet(0,1,2,3,4,5)]
-        [int16]$Severity = 1,
+        [Parameter(Mandatory=$false,Position=2)]
+        [ValidateSet(0,1,2,3,4)]
+        [int16]$Severity,
 
         [parameter(Mandatory=$false, HelpMessage="Name of the log file that the entry will written to.")]
         [ValidateNotNullOrEmpty()]
@@ -288,26 +288,15 @@ Function Write-LogEntry{
         [parameter(Mandatory=$false)]
         [switch]$Outhost
     )
-    ## Get the name of this function
-    #[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
-    if (-not $PSBoundParameters.ContainsKey('Verbose')) {
-        $VerbosePreference = $PSCmdlet.SessionState.PSVariable.GetValue('VerbosePreference')
+    Begin{
+        ## Get the name of this function
+        [string]$LogTime = (Get-Date -Format 'HH:mm:ss.fff').ToString()
+    	[string]$LogDate = (Get-Date -Format 'MM-dd-yyyy').ToString()
+    	[int32]$script:LogTimeZoneBias = [timezone]::CurrentTimeZone.GetUtcOffset([datetime]::Now).TotalMinutes
+    	[string]$LogTimePlusBias = $LogTime + $script:LogTimeZoneBias
+        #  Get the file name of the source script
     }
-
-    if (-not $PSBoundParameters.ContainsKey('Debug')) {
-        $DebugPreference = $PSCmdlet.SessionState.PSVariable.GetValue('DebugPreference')
-    }
-    #get BIAS time
-    [string]$LogTime = (Get-Date -Format 'HH:mm:ss.fff').ToString()
-	[string]$LogDate = (Get-Date -Format 'MM-dd-yyyy').ToString()
-	[int32]$script:LogTimeZoneBias = [timezone]::CurrentTimeZone.GetUtcOffset([datetime]::Now).TotalMinutes
-	[string]$LogTimePlusBias = $LogTime + $script:LogTimeZoneBias
-
-    #  Get the file name of the source script
-    If($Source){
-        $ScriptSource = $Source
-    }
-    Else{
+    Process{
         Try {
     	    If ($script:MyInvocation.Value.ScriptName) {
     		    [string]$ScriptSource = Split-Path -Path $script:MyInvocation.Value.ScriptName -Leaf -ErrorAction 'Stop'
@@ -319,44 +308,39 @@ Function Write-LogEntry{
         Catch {
     	    $ScriptSource = ''
         }
-    }
 
-    #if the severity is 4 or 5 make them 1; but output as verbose or debug respectfully.
-    If($Severity -eq 4){$logSeverityAs=1}Else{$logSeverityAs=$Severity}
-    If($Severity -eq 5){$logSeverityAs=1}Else{$logSeverityAs=$Severity}
+        If(!$Severity){$Severity = 1}
+        $LogFormat = "<![LOG[$Message]LOG]!>" + "<time=`"$LogTimePlusBias`" " + "date=`"$LogDate`" " + "component=`"$ScriptSource`" " + "context=`"$([Security.Principal.WindowsIdentity]::GetCurrent().Name)`" " + "type=`"$Severity`" " + "thread=`"$PID`" " + "file=`"$ScriptSource`">"
 
-    #generate CMTrace log format
-    $LogFormat = "<![LOG[$Message]LOG]!>" + "<time=`"$LogTimePlusBias`" " + "date=`"$LogDate`" " + "component=`"$ScriptSource`" " + "context=`"$([Security.Principal.WindowsIdentity]::GetCurrent().Name)`" " + "type=`"$logSeverityAs`" " + "thread=`"$PID`" " + "file=`"$ScriptSource`">"
-
-    # Add value to log file
-    try {
-        Out-File -InputObject $LogFormat -Append -NoClobber -Encoding Default -FilePath $OutputLogFile -ErrorAction Stop
-    }
-    catch {
-        Write-Host ("[{0}] [{1}] :: Unable to append log entry to [{1}], error: {2}" -f $LogTimePlusBias,$ScriptSource,$OutputLogFile,$_.Exception.ErrorMessage) -ForegroundColor Red
-    }
-
-    #output the message to host
-    If($Outhost)
-    {
-        If($Source){
-            $OutputMsg = ("[{0}] [{1}] :: {2}" -f $LogTimePlusBias,$Source,$Message)
+        # Add value to log file
+        try {
+            Out-File -InputObject $LogFormat -Append -NoClobber -Encoding Default -FilePath $OutputLogFile -ErrorAction Stop
         }
-        Else{
-            $OutputMsg = ("[{0}] [{1}] :: {2}" -f $LogTimePlusBias,$ScriptSource,$Message)
+        catch {
+            Write-Output ("[{0}] [{1}] :: Unable to append log entry to [{2}]: {3}" -f $LogTimePlusBias,$ScriptSource,$OutputLogFile,$_.Exception.Message)
         }
 
-        Switch($Severity){
-            0       {Write-Host $OutputMsg -ForegroundColor Green}
-            1       {Write-Host $OutputMsg -ForegroundColor Gray}
-            2       {Write-Host $OutputMsg -ForegroundColor Yellow}
-            3       {Write-Host $OutputMsg -ForegroundColor Red}
-            4       {Write-Verbose $OutputMsg}
-            5       {Write-Debug $OutputMsg}
-            default {Write-Host $OutputMsg}
+        If($Outhost){
+            If($Source){
+                $OutputMsg = ("[{0}] [{1}] :: {2}" -f $LogTimePlusBias,$Source,$Message)
+            }
+            Else{
+                $OutputMsg = ("[{0}] [{1}] :: {2}" -f $LogTimePlusBias,$ScriptSource,$Message)
+            }
+
+            Switch($Severity){
+                0       {Write-Output $OutputMsg}
+                1       {Write-Output $OutputMsg}
+                2       {Write-Warning $OutputMsg}
+                3       {Write-Output $OutputMsg}
+                4       {If($VerbosePreference){Write-Verbose $OutputMsg}}
+                default {Write-Output $OutputMsg}
+            }
         }
     }
+    End{}
 }
+
 ##*=============================================
 ##* VARIABLE DECLARATION
 ##*=============================================
@@ -1321,19 +1305,24 @@ ElseIf( Get-Process | Where {$_.MainWindowTitle -eq "Time Zone Selection"} ){
 }
 ElseIf($RunOnce){
     $UiStatus = Get-ItemPropertyValue "$($RegHive):\Software\PowerShellCrack\TimeZoneSelector" -Name Status -ErrorAction SilentlyContinue
-    switch($UiStatus){
-        'Running' {$StatusMsg = "Script must have crashed because process detection was not found and status is running. UI will be displayed"; $displayUI = $true}
-        'Failed' {$StatusMsg = "Last attempt failed; UI will be displayed."; $displayUI = $true}
-        'Completed' {$StatusMsg = "Selector has already ran once. Try '-ForceInteraction:`$true' param to force the UI."; $displayUI = $false}
-        $null {$StatusMsg = "First time running script; UI will be displayed."; $displayUI = $true}
-        default {$StatusMsg = "Unknown status; UI will be displayed."; $displayUI = $true}
+    If($UiStatus){
+        switch($UiStatus){
+            'Running' {$StatusMsg = "Script must have crashed because process detection was not found and status is running. UI will be displayed"; $displayUI = $true}
+            'Failed' {$StatusMsg = "Last attempt failed; UI will be displayed."; $displayUI = $true}
+            'Completed' {$StatusMsg = "Selector has already ran once. Try '-ForceInteraction:`$true' param to force the UI."; $displayUI = $false}
+            default {$StatusMsg = "Unknown status; UI will be displayed."; $displayUI = $true}
+        }
+    }
+    Else{
+        $StatusMsg = "First time running script; UI will be displayed."; $displayUI = $true
     }
 
     #check if registry key exists to determine if form needs to be displayed
     If($displayUI){
         Write-LogEntry $StatusMsg -Severity 4 -Outhost
         Start-TimeSelectorUI @UIControlParam
-    }Else{
+    }
+    Else{
         #do nothing
         #Stop-TimeSelectorUI -UIObject $TZSelectUI -UpdateStatusKeyHive $RegHive -CustomStatus "Completed"
         Write-LogEntry $StatusMsg -Severity 4 -Outhost

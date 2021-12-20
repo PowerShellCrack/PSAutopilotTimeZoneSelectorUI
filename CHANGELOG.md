@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.0.6 - Dec 20, 2021
+
+- Fixed UI status check; returned null but switch did not set the appropriate variables
+- Added global variable for output logs file ; logging would errors without it
+- Fixed Write-LogEntry parameter position; used wrong position
+
 ## 2.0.5 - Oct 04, 2021
 
 - Added logging and SMSTS logging; Output to temp
