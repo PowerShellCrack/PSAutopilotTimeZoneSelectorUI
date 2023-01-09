@@ -1085,7 +1085,7 @@ Function Get-GeographicData {
                     (Get-Content -Path $intuneManagementExtensionLogPath).replace($IpStackAPIKey,'<sensitive data>') |
                             Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
                 }Catch{
-                    Write-LogEntry ("Unable to change intune log file: {0}" -f $_.exception.message) -Severity 3 -Outhost
+                    Write-LogEntry ("Unable to remove IpStack API key from intune log file: {0}" -f $_.exception.message) -Severity 3 -Outhost
                 }
             }
         }
@@ -1115,7 +1115,7 @@ Function Get-GeographicData {
                     (Get-Content -Path $intuneManagementExtensionLogPath).replace($BingMapsAPIKey,'<sensitive data>') |
                         Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
                 }Catch{
-                    Write-LogEntry ("Unable to change intune log file: {0}" -f $_.exception.message) -Severity 3 -Outhost
+                    Write-LogEntry ("Unable to remove BingMaps API key from intune log file: {0}" -f $_.exception.message) -Severity 3 -Outhost
                 }
             }
         }
@@ -1235,24 +1235,32 @@ $ui_lbxTimeZoneList.ScrollIntoView($ui_lbxTimeZoneList.Items[$ui_lbxTimeZoneList
 
 #when button is clicked changer time
 $ui_btnTZSelect.Add_Click({
-    #Set time zone
-    #Set-TimeZone $ui_lbxTimeZoneList.SelectedItem
-    Update-DeviceTimeZone -SelectedTZ $ui_lbxTimeZoneList.SelectedItem
-    #build registry key for time selector
-    If($null -ne $UIControlParam.UpdateStatusKeyHive){Set-StatusKey -Hive $RegHive -Name TimeZoneSelected -Value $ui_lbxTimeZoneList.SelectedItem}
+    Try{
+        #Set time zone
+        #Set-TimeZone $ui_lbxTimeZoneList.SelectedItem
+        Update-DeviceTimeZone -SelectedTZ $ui_lbxTimeZoneList.SelectedItem
+        #build registry key for time selector
+        If($null -ne $UIControlParam.UpdateStatusKeyHive){Set-StatusKey -Hive $RegHive -Name TimeZoneSelected -Value $ui_lbxTimeZoneList.SelectedItem}
 
-	#update the time and date
-    If($SyncNTP)
-    {
-        Set-NTPDateTime -sNTPServer $Global:NTPServer -Verbose:$VerbosePreference
-        If($null -ne $UIControlParam.UpdateStatusKeyHive){Set-StatusKey -Hive $RegHive -Name SyncedToNTP -Value $Global:NTPServer}
+        #update the time and date
+        If($SyncNTP)
+        {
+            Set-NTPDateTime -sNTPServer $Global:NTPServer -Verbose:$VerbosePreference
+            If($null -ne $UIControlParam.UpdateStatusKeyHive){Set-StatusKey -Hive $RegHive -Name SyncedToNTP -Value $Global:NTPServer}
+        }
+        Else{
+            Write-LogEntry ("No NTP server specified. Skipping date and time update.") -Severity 4 -Outhost
+        }
+    }Catch{
+        Write-LogEntry ("Unable to change timezone: {0}" -f $_.exception.message) -Severity 3 -Outhost
+        'TimeZone:' + $ui_lbxTimeZoneList.SelectedItem | Set-Content $env:PUBLIC\timezone.txt
+        'NTPServer:' + $Global:NTPServer | Add-Content $env:PUBLIC\timezone.txt
     }
-    Else{
-        Write-LogEntry ("No NTP server specified. Skipping date and time update.") -Severity 4 -Outhost
+    Finally{
+        #always close the UI
+        Stop-TimeSelectorUI @UIControlParam
+        #If(!$isISE){Stop-Process $pid}
     }
-    #close the UI
-    Stop-TimeSelectorUI @UIControlParam
-	#If(!$isISE){Stop-Process $pid}
 
 })
 
