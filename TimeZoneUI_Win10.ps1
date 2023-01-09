@@ -13,7 +13,7 @@
     .NOTES
         Author		: Dick Tracy <richard.tracy@hotmail.com>
 	    Source		: https://github.com/PowerShellCrack/AutopilotTimeZoneSelectorUI
-        Version		: 2.0.6
+        Version		: 2.0.7
         README      : Review README.md for more details and configurations
         CHANGELOG   : Review CHANGELOG.md for updates and fixes
         IMPORTANT   : By using this script or parts of it, you have read and accepted the DISCLAIMER.md and LICENSE agreement
@@ -366,13 +366,13 @@ Write-Host "logging to file: $LogFilePath" -ForegroundColor Cyan
 #===========================================================================
 # XAML LANGUAGE
 #===========================================================================
-$XAML = @"
-<Window x:Class="SelectTimeZoneUI.MainWindow"
+$XAMLPayload = @"
+<Window x:Class="Win10SelectTimeZoneUI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:SelectTimeZoneUI"
+        xmlns:local="clr-namespace:Win10SelectTimeZoneUI"
         mc:Ignorable="d"
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
@@ -818,23 +818,23 @@ $XAML = @"
 "@
 
 #replace some default attributes to support powershell
-[string]$XAML = $XAML -replace 'mc:Ignorable="d"','' -replace "x:N",'N'  -replace '^<Win.*', '<Window'
+[string]$XAMLPayload = $XAMLPayload -replace 'mc:Ignorable="d"','' -replace "x:N",'N'  -replace '^<Win.*', '<Window'
 
 #=======================================================
 # LOAD ASSEMBLIES
 #=======================================================
-[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms')  | out-null #creating Windows-based applications
-[System.Reflection.Assembly]::LoadWithPartialName('WindowsFormsIntegration')  | out-null # Call the EnableModelessKeyboardInterop; allows a Windows Forms control on a WPF page.
+#[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms')  | out-null #creating Windows-based applications
+#[System.Reflection.Assembly]::LoadWithPartialName('WindowsFormsIntegration')  | out-null # Call the EnableModelessKeyboardInterop; allows a Windows Forms control on a WPF page.
 If(Test-WinPE -or Test-IsISE){[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Application')  | out-null} #Encapsulates a Windows Presentation Foundation application.
-[System.Reflection.Assembly]::LoadWithPartialName('System.ComponentModel') | out-null #systems components and controls and convertors
-[System.Reflection.Assembly]::LoadWithPartialName('System.Data')           | out-null #represent the ADO.NET architecture; allows multiple data sources
+#[System.Reflection.Assembly]::LoadWithPartialName('System.ComponentModel') | out-null #systems components and controls and convertors
+#[System.Reflection.Assembly]::LoadWithPartialName('System.Data')           | out-null #represent the ADO.NET architecture; allows multiple data sources
 [System.Reflection.Assembly]::LoadWithPartialName('presentationframework') | out-null #required for WPF
 [System.Reflection.Assembly]::LoadWithPartialName('PresentationCore')      | out-null #required for WPF
 
 #convert to XML
-[xml]$XAML = $XAML
+[xml]$XMLPayload = $XAMLPayload
 #Read XAML
-$reader=(New-Object System.Xml.XmlNodeReader $xaml)
+$reader=(New-Object System.Xml.XmlNodeReader $XMLPayload)
 try{$TZSelectUI=[Windows.Markup.XamlReader]::Load( $reader )}
 catch{
     Write-LogEntry ("Unable to load Windows.Markup.XamlReader. {0}" -f $_.Exception.Message) -Severity 3 -Outhost
@@ -845,7 +845,7 @@ catch{
 # Store Form Objects In PowerShell
 #===========================================================================
 #take the xaml properties and make them variables
-$xaml.SelectNodes("//*[@Name]") | %{Set-Variable -Name "ui_$($_.Name)" -Value $TZSelectUI.FindName($_.Name)}
+$XMLPayload.SelectNodes("//*[@Name]") | %{Set-Variable -Name "ui_$($_.Name)" -Value $TZSelectUI.FindName($_.Name)}
 
 Function Get-FormVariables{
     if ($global:ReadmeDisplay -ne $true){
@@ -1081,8 +1081,12 @@ Function Get-GeographicData {
             If($IntuneManaged){
                 Write-LogEntry ("Clearing sensitive data in Intune Management Extension log...") -Severity 4 -Outhost
                 # Hide the api keys from logs to prevent manipulation API's
-                (Get-Content -Path $intuneManagementExtensionLogPath).replace($IpStackAPIKey,'<sensitive data>') |
+                Try{
+                    (Get-Content -Path $intuneManagementExtensionLogPath).replace($IpStackAPIKey,'<sensitive data>') |
                             Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
+                }Catch{
+                    Write-LogEntry ("Unable to change intune log file: {0}" -f $_.exception.message) -Severity 3 -Outhost
+                }
             }
         }
 
@@ -1107,8 +1111,12 @@ Function Get-GeographicData {
             If($IntuneManaged){
                 Write-LogEntry ("Clearing sensitive data in Intune Management Extension log...") -Severity 4 -Outhost
                 # Hide the api keys from logs to prevent manipulation API's
-                (Get-Content -Path $intuneManagementExtensionLogPath).replace($BingMapsAPIKey,'<sensitive data>') |
+                Try{
+                    (Get-Content -Path $intuneManagementExtensionLogPath).replace($BingMapsAPIKey,'<sensitive data>') |
                         Set-Content -Path $intuneManagementExtensionLogPath -ErrorAction SilentlyContinue | Out-Null
+                }Catch{
+                    Write-LogEntry ("Unable to change intune log file: {0}" -f $_.exception.message) -Severity 3 -Outhost
+                }
             }
         }
     }
