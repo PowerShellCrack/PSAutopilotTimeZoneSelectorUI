@@ -1040,7 +1040,11 @@ If( (Test-SMSTSENV) -and ($ui_lbxTimeZoneList.SelectedItem) )
     Write-LogEntry ("Task Sequence detected, settings output variables: ") -Severity 4 -Outhost
     Write-LogEntry ("OSDMigrateTimeZone: {0}" -f $True.ToString()) -Severity 4 -Outhost
     Write-LogEntry ("OSDTimeZone: {0}" -f $TargetGeoTzObj.StandardName) -Severity 4 -Outhost
-    #$tsenv.Value("TimeZone") = (Get-TimeZoneIndex -TimeZone $ui_lbxTimeZoneList.SelectedItem #<--- TODO Need index function created
-    $tsenv.Value("OSDMigrateTimeZone") = $true
-    $tsenv.Value("OSDTimeZone") = $TargetGeoTzObj.StandardName
+    try{
+        #$tsenv.Value("TimeZone") = (Get-TimeZoneIndex -TimeZone $ui_lbxTimeZoneList.SelectedItem #<--- TODO Need index function created
+        $tsenv.Value("OSDMigrateTimeZone") = $true
+        $tsenv.Value("OSDTimeZone") = $TargetGeoTzObj.StandardName
+    }Catch{
+        Write-LogEntry ("Unable to set Task Sequence variables: {0}" -f $_.Exception.Message) -Severity 3 -Outhost
+    }
 }
